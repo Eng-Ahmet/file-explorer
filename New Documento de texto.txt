@@ -1,0 +1,7 @@
+         <button
+                class="btn btn-outline-danger btn-sm w-100"
+                id="clearAllBtn"
+                onclick="clear_all_files()"
+              >
+                <i class="fas fa-trash me-1"></i>&nbsp;Clear All
+              </button>
