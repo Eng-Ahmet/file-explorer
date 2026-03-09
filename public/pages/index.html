@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" class="dark bg-[#0F172A]" style="background-color: #0F172A; color-scheme: dark;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hwai Technology File System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/tailwind-config.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // Pre-check authentication
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        
+        if (!token) {
+            window.location.href = '/login';
+        } else if (user && user.role === 'admin' && !window.location.pathname.includes('admin')) {
+             // Admin should stay at / if they want, but often they prefer admin dashboard
+             // For now we keep them here unless they explicitly go to admin.
+             document.documentElement.classList.add('ready');
+        } else {
+            document.documentElement.classList.add('ready');
+        }
+    </script>
+    <style>
+        html:not(.ready) body { opacity: 0; }
+        body {
+            background: #0F172A;
+            color: #f8fafc;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-hover:hover {
+            background: rgba(51, 65, 85, 0.8);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased h-screen overflow-hidden flex flex-col bg-[#0F172A] text-slate-200">
+    <!-- Top Navbar -->
+    <header class="h-16 border-b border-white/10 glass flex items-center px-6 justify-between z-50">
+        <div class="flex items-center gap-3">
+            <a href="/" class="block">
+                <img src="/images/logo.png" alt="Hwai Technology" class="h-10 w-auto">
+            </a>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <button id="uploadBtn" class="hidden md:flex items-center gap-2 bg-tech-blue hover:opacity-90 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-tech-blue/20 active:scale-95">
+                <i class="fas fa-cloud-arrow-up"></i>
+                <span>Upload</span>
+            </button>
+            
+            <a href="/admin" id="adminBtn" class="hidden items-center gap-2 bg-slate-800/50 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm font-medium transition-all border border-white/5" style="display: none;" title="Admin Panel">
+                <i class="fas fa-shield-halved text-tech-blue"></i>
+                <span>Admin Panel</span>
+            </a>
+
+            <div class="h-8 w-px bg-white/10"></div>
+
+            <div id="userSection" class="flex items-center gap-3">
+                <!-- User UI will be injected here -->
+                <a href="/login" class="text-sm font-medium hover:text-brand-400 transition-colors">Sign In</a>
+                <a href="/register" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-medium transition-all">Get Started</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-72 border-r border-white/10 glass overflow-y-auto custom-scrollbar flex flex-col p-6 gap-8">
+            <section>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xs font-bold uppercase tracking-widest text-slate-500">Navigation</h2>
+                    <button id="newFolderBtn" class="p-1 text-slate-500 hover:text-tech-blue transition-colors">
+                        <i class="fas fa-folder-plus"></i>
+                    </button>
+                </div>
+                <div id="folderTree" class="space-y-1">
+                    <!-- Tree items -->
+                </div>
+            </section>
+
+            <section>
+                <h2 class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Storage Metrics</h2>
+                <div class="space-y-4">
+                    <div class="p-4 rounded-xl bg-white/5 border border-white/10 space-y-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                <span>Vault Usage</span>
+                                <span id="usageLabel">0MB / 100MB</span>
+                            </div>
+                            <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                                <div id="usageBar" class="h-full bg-tech-blue transition-all duration-1000" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center bg-white/5 p-2 rounded-lg">
+                            <span class="text-[10px] text-slate-500 font-bold uppercase">Total Files</span>
+                            <span class="text-xs font-bold text-white" data-stat="total">0</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-white/5 p-2 rounded-lg text-center">
+                                <div class="text-[9px] text-slate-500 uppercase font-bold mb-0.5">MD</div>
+                                <div class="text-xs font-bold text-tech-blue" data-stat="md">0</div>
+                            </div>
+                            <div class="bg-white/5 p-2 rounded-lg text-center">
+                                <div class="text-[9px] text-slate-500 uppercase font-bold mb-0.5">PDF</div>
+                                <div class="text-xs font-bold text-tech-orange" data-stat="pdf">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="mt-auto">
+                <button id="clearAllBtn" onclick="clear_all_files()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 transition-all text-sm font-medium">
+                    <i class="fas fa-trash-can"></i>
+                    <span>Purge Storage</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <section class="flex-1 flex flex-col overflow-hidden bg-slate-900/50">
+            <!-- Search & Actions Bar -->
+            <div class="p-6 flex flex-wrap gap-4 items-center justify-between">
+                <div class="relative flex-1 max-w-md">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                    <input type="text" id="search-input" placeholder="Search your technology files..." class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-tech-blue/50 focus:border-tech-blue transition-all text-sm placeholder:text-slate-500">
+                </div>
+                
+                <div class="flex bg-white/5 border border-white/10 p-1 rounded-xl">
+                    <button class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all hover:text-white text-slate-400 active bg-white/10 text-white" data-filter="all">All</button>
+                    <button class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all hover:text-white text-slate-400" data-filter="md">Markdown</button>
+                    <button class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all hover:text-white text-slate-400" data-filter="pdf">PDF</button>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="flex-1 overflow-y-auto p-6 pt-0 custom-scrollbar">
+                <div id="filesContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                    <!-- Cards will be injected here -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden flex flex-col items-center justify-center py-20 opacity-50">
+                    <div class="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                        <i class="fas fa-microchip text-4xl text-slate-600"></i>
+                    </div>
+                    <h3 class="text-xl font-medium text-slate-400">Library Empty</h3>
+                    <p class="text-slate-500 text-sm">Upload your technology documents to begin</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modals (Only functional ones) -->
+    <div id="fileViewerModal" class="fixed inset-0 z-[100] hidden flex flex-col bg-slate-950">
+        <header class="h-16 border-b border-white/10 flex items-center px-6 justify-between">
+            <h2 id="fileViewerTitle" class="font-bold flex items-center gap-3">
+                <i class="fas fa-file-lines text-tech-blue"></i>
+                <span>File Preview</span>
+            </h2>
+            <div class="flex items-center gap-3">
+                <button id="printBtn" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-all">
+                    <i class="fas fa-print"></i>
+                    <span>Print</span>
+                </button>
+                <button id="downloadBtn" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-all">
+                    <i class="fas fa-download"></i>
+                    <span>Download</span>
+                </button>
+                <button onclick="document.getElementById('fileViewerModal').classList.add('hidden')" class="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </header>
+        <div id="fileViewerContent" class="flex-1 overflow-auto bg-slate-900 custom-scrollbar"></div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 transition-all transform translate-y-20 opacity-0 z-[200]">
+        <div class="glass px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4">
+            <div id="toastIcon" class="w-10 h-10 rounded-full flex items-center justify-center text-white"></div>
+            <div>
+                <p id="toastTitle" class="font-bold text-sm"></p>
+                <p id="toastMessage" class="text-xs text-slate-400"></p>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" multiple accept=".md,.pdf" class="hidden">
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="/js/fileManager.js"></script>
+    <script src="/js/fileViewer.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

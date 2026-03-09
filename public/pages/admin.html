@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en" class="dark bg-[#0F172A]" style="background-color: #0F172A; color-scheme: dark;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - Hwai Technology</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/tailwind-config.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // Check Admin privileges before anything else
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        
+        if (!token || !user || user.role !== 'admin') {
+            window.location.href = '/login';
+        }
+    </script>
+    <style>
+        body { background: #0F172A; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden bg-[#0F172A] text-slate-200">
+    <header class="h-16 border-b border-white/10 glass flex items-center px-6 justify-between z-50">
+        <div class="flex items-center gap-4">
+            <a href="/" class="p-2 hover:bg-white/5 rounded-xl transition-all text-slate-400 hover:text-white">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div class="h-6 w-px bg-white/10 mx-2"></div>
+            <a href="/" class="block">
+                <img src="/images/logo.png" alt="Hwai Technology" class="h-10 w-auto">
+            </a>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="/" class="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-slate-300 px-4 py-2 rounded-xl text-sm font-medium transition-all">
+                <i class="fas fa-folder-open text-tech-blue"></i>
+                <span>Go to Files</span>
+            </a>
+            <div id="adminUserSection" class="flex items-center gap-3"></div>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-8 custom-scrollbar bg-slate-900/50">
+        <div class="max-w-6xl mx-auto space-y-8">
+            <div class="flex items-end justify-between">
+                <div>
+                    <h2 class="text-3xl font-bold">Professional Admin Panel</h2>
+                    <p class="text-slate-500 mt-1">Real-time system monitoring and user management.</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button id="syncStorageBtn" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg shadow-indigo-600/20 active:scale-95">
+                        <i class="fas fa-arrows-rotate"></i>
+                        <span>Sync All Storage</span>
+                    </button>
+                    <div id="systemStatus" class="flex items-center gap-3 glass px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest text-tech-blue">
+                        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                        System Online
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="glass p-6 rounded-3xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400 text-xs font-bold uppercase tracking-widest">Total Users</span>
+                        <div class="w-10 h-10 rounded-2xl bg-tech-blue/10 flex items-center justify-center text-tech-blue">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                    <div id="totalUsersCard" class="text-2xl font-bold">0</div>
+                    <div class="text-[10px] text-slate-500 font-medium">Global count</div>
+                </div>
+                <div class="glass p-6 rounded-3xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400 text-xs font-bold uppercase tracking-widest">Storage Used</span>
+                        <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                            <i class="fas fa-database"></i>
+                        </div>
+                    </div>
+                    <div id="totalStorageCard" class="text-2xl font-bold">0 MB</div>
+                    <div id="storagePercentLabel" class="text-[10px] text-slate-500 font-medium whitespace-nowrap overflow-hidden text-ellipsis">0% of system capacity</div>
+                </div>
+                <div class="glass p-6 rounded-3xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400 text-xs font-bold uppercase tracking-widest">CPU Status</span>
+                        <div class="w-10 h-10 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
+                            <i class="fas fa-microchip"></i>
+                        </div>
+                    </div>
+                    <div id="cpuLoadCard" class="text-2xl font-bold">0%</div>
+                    <div class="text-[10px] text-slate-500 font-medium">Average Load</div>
+                </div>
+                <div class="glass p-6 rounded-3xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400 text-xs font-bold uppercase tracking-widest">Memory</span>
+                        <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                            <i class="fas fa-memory"></i>
+                        </div>
+                    </div>
+                    <div id="ramUsageCard" class="text-2xl font-bold">0%</div>
+                    <div id="ramDetailLabel" class="text-[10px] text-slate-500 font-medium">0GB / 0GB</div>
+                </div>
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div class="flex flex-col md:flex-row gap-4 items-center justify-between bg-white/5 p-2 rounded-2xl border border-white/5">
+                <div class="relative flex-1 w-full">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+                    <input type="text" id="userSearchInput" placeholder="Search by name, email..." 
+                        class="w-full bg-transparent border-none focus:ring-0 pl-12 pr-4 py-3 text-sm text-white placeholder:text-slate-600">
+                </div>
+                <div class="flex items-center gap-2 w-full md:w-auto">
+                    <select id="roleFilter" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-300 focus:outline-none focus:ring-1 focus:ring-tech-blue cursor-pointer">
+                        <option value="all" class="bg-slate-900">All Roles</option>
+                        <option value="admin" class="bg-slate-900">Admins</option>
+                        <option value="user" class="bg-slate-900">Users</option>
+                    </select>
+                    <select id="statusFilter" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-300 focus:outline-none focus:ring-1 focus:ring-tech-blue cursor-pointer">
+                        <option value="all" class="bg-slate-900">All Status</option>
+                        <option value="active" class="bg-slate-900">Active Only</option>
+                        <option value="disabled" class="bg-slate-900">Disabled Only</option>
+                    </select>
+                    <button id="refreshStatsBtn" class="w-11 h-11 flex items-center justify-center bg-tech-blue rounded-xl text-white hover:bg-blue-600 transition-all shadow-lg shadow-tech-blue/20">
+                        <i class="fas fa-sync-alt text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="glass rounded-3xl overflow-hidden shadow-2xl border border-white/5">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="bg-white/5 border-b border-white/10">
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-400">Identity</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-400">Storage Usage</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-400 text-center">Access & Permissions</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-400">Joined</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-400 text-right">Control</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody" class="divide-y divide-white/5">
+                            <!-- Rows will be injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Activity Log Modal -->
+    <div id="logModal" class="fixed inset-0 z-[150] hidden">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="closeLogModal()"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-[#0F172A] border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 border-b border-white/10 flex items-center justify-between bg-white/5">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-tech-blue/10 flex items-center justify-center text-tech-blue">
+                        <i class="fas fa-history text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Activity Logs</h3>
+                        <p id="logModalSubtitle" class="text-slate-500 text-xs">Tracking system interactions</p>
+                    </div>
+                </div>
+                <button onclick="closeLogModal()" class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/5 text-slate-500 hover:text-white transition-all">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="logContent" class="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar space-y-4">
+                <!-- Logs injected here -->
+            </div>
+            <div class="p-4 bg-white/5 border-t border-white/10 text-center">
+                <p id="logCountLabel" class="text-[10px] font-bold uppercase tracking-widest text-slate-500 text-center">Showing recent activities</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Reset Modal -->
+    <div id="passwordModal" class="fixed inset-0 z-[150] hidden">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="closePasswordModal()"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-[#0F172A] border border-white/10 rounded-3xl shadow-2xl overflow-hidden p-8">
+            <h3 class="text-xl font-bold text-white mb-2">Reset Password</h3>
+            <p id="passwordModalUser" class="text-slate-500 text-sm mb-6">Enter a new password for the user.</p>
+            <div class="space-y-4">
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-400 uppercase">New Password</label>
+                    <input type="password" id="newPasswordInput" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-tech-blue">
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="closePasswordModal()" class="flex-1 px-4 py-3 rounded-xl bg-white/5 text-slate-400 font-bold text-sm hover:bg-white/10 transition-all">Cancel</button>
+                    <button id="confirmPasswordBtn" class="flex-1 px-4 py-3 rounded-xl bg-tech-blue text-white font-bold text-sm hover:bg-blue-600 transition-all shadow-lg shadow-tech-blue/20">Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Access Management Modal -->
+    <div id="accessModal" class="fixed inset-0 z-[150] hidden">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeAccessModal()"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg glass rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-300">
+            <div class="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                <div>
+                    <h3 class="text-xl font-bold text-white">Monitoring Permissions</h3>
+                    <p id="accessModalSubtitle" class="text-xs text-slate-500 mt-1"></p>
+                </div>
+                <button onclick="closeAccessModal()" class="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-400 rounded-full transition-all">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-8">
+                <div class="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar" id="accessUserList">
+                    <!-- User list with checkboxes will be here -->
+                </div>
+                
+                <div class="mt-8 flex items-center justify-between p-4 bg-tech-blue/5 rounded-2xl border border-tech-blue/10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-tech-blue/20 flex items-center justify-center text-tech-blue">
+                            <i class="fas fa-shield-halved text-xs"></i>
+                        </div>
+                        <div class="text-[10px] text-slate-400 font-medium leading-relaxed">
+                            Selected users will be visible to this account <br/>
+                            when <span class="text-tech-blue font-bold">"View Others' Files"</span> is enabled.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex gap-3">
+                    <button onclick="closeAccessModal()" class="flex-1 px-6 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-all">
+                        Cancel
+                    </button>
+                    <button id="saveAccessBtn" class="flex-1 px-6 py-4 rounded-2xl bg-tech-blue hover:bg-blue-600 text-white text-sm font-bold transition-all shadow-lg shadow-tech-blue/20">
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 transition-all transform translate-y-20 opacity-0 z-[200]">
+        <div class="glass px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border border-white/10">
+            <div id="toastIcon" class="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg"></div>
+            <div>
+                <p id="toastTitle" class="font-bold text-sm text-white"></p>
+                <p id="toastMessage" class="text-xs text-slate-400"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allUsers = [];
+        let systemStats = null;
+        let diagnostics = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user'));
+
+            if (!token || user?.role !== 'admin') {
+                window.location.href = '/';
+                return;
+            }
+
+            const section = document.getElementById('adminUserSection');
+            section.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="flex flex-col items-end mr-2">
+                        <span class="text-xs font-bold text-white">${user.username}</span>
+                        <span class="text-[10px] text-tech-blue font-bold uppercase tracking-tighter">System Admin</span>
+                    </div>
+                    <button onclick="logout()" class="w-10 h-10 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-rose-400 rounded-xl transition-all flex items-center justify-center">
+                        <i class="fas fa-power-off"></i>
+                    </button>
+                </div>
+            `;
+
+            // Initialize Search & Filter
+            document.getElementById('userSearchInput').addEventListener('input', applyFilters);
+            document.getElementById('roleFilter').addEventListener('change', applyFilters);
+            document.getElementById('statusFilter').addEventListener('change', applyFilters);
+            document.getElementById('refreshStatsBtn').addEventListener('click', refreshData);
+            document.getElementById('syncStorageBtn').addEventListener('click', syncAllStorage);
+
+            refreshData();
+        });
+
+        async function refreshData() {
+            const btn = document.getElementById('refreshStatsBtn');
+            btn.classList.add('animate-spin');
+            
+            await Promise.all([
+                loadStats(),
+                loadDiagnostics(),
+                loadUsers()
+            ]);
+            
+            setTimeout(() => btn.classList.remove('animate-spin'), 500);
+        }
+
+        async function syncAllStorage() {
+            const btn = document.getElementById('syncStorageBtn');
+            const icon = btn.querySelector('i');
+            const token = localStorage.getItem('token');
+            
+            try {
+                btn.classList.add('opacity-50', 'pointer-events-none');
+                icon.classList.add('animate-spin');
+                
+                const res = await fetch('/api/admin/sync-storage', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.ok) {
+                    showToast("Sync Complete", "All user storage quotas have been recalculated", "success");
+                    refreshData();
+                } else {
+                    throw new Error('Action Denied');
+                }
+            } catch (err) {
+                showToast("Sync Failed", err.message, "error");
+            } finally {
+                btn.classList.remove('opacity-50', 'pointer-events-none');
+                icon.classList.remove('animate-spin');
+            }
+        }
+
+        async function loadStats() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/stats', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                systemStats = await res.json();
+                
+                document.getElementById('totalUsersCard').textContent = systemStats.topUsers.length; // Approximate from topUsers if no direct count
+                const totalMB = Math.round(systemStats.totalBytes / (1024 * 1024));
+                document.getElementById('totalStorageCard').textContent = `${totalMB} MB`;
+                
+                // Assuming 10GB system quota for demo
+                const percent = Math.min(100, Math.round((systemStats.totalBytes / (10 * 1024 * 1024 * 1024)) * 100));
+                document.getElementById('storagePercentLabel').textContent = `${percent}% of 10GB capacity`;
+            } catch (err) {
+                console.error('Error loading stats:', err);
+            }
+        }
+
+        async function loadDiagnostics() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/diagnostics', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                diagnostics = await res.json();
+                
+                document.getElementById('cpuLoadCard').textContent = `${Math.round(diagnostics.cpu.load[0] * 100)}%`;
+                document.getElementById('ramUsageCard').textContent = `${Math.round(diagnostics.memory.usage)}%`;
+                
+                const usedGB = (diagnostics.memory.total - diagnostics.memory.free) / (1024 * 1024 * 1024);
+                const totalGB = diagnostics.memory.total / (1024 * 1024 * 1024);
+                document.getElementById('ramDetailLabel').textContent = `${usedGB.toFixed(1)}GB / ${totalGB.toFixed(1)}GB`;
+            } catch (err) {
+                console.error('Error loading diagnostics:', err);
+            }
+        }
+
+        async function loadUsers() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/users', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                allUsers = await res.json();
+                
+                // Update stats card with real count if available
+                document.getElementById('totalUsersCard').textContent = allUsers.length;
+                
+                applyFilters();
+            } catch (err) {
+                showToast("Fetch Error", "Failed to load user list", "error");
+            }
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('userSearchInput').value.toLowerCase();
+            const roleFilter = document.getElementById('roleFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            const filtered = allUsers.filter(u => {
+                const matchesSearch = u.username.toLowerCase().includes(searchTerm) || u.email.toLowerCase().includes(searchTerm);
+                const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+                const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? u.isActive : !u.isActive);
+                return matchesSearch && matchesRole && matchesStatus;
+            });
+
+            renderTable(filtered);
+        }
+
+        function renderTable(users) {
+            const tbody = document.getElementById('usersTableBody');
+            if (users.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-slate-500 italic">No users found matching criteria</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = users.map(u => {
+                const quotaMB = Math.round(u.storageQuota / (1024 * 1024));
+                const usedMB = Math.round(u.totalStorageUsed / (1024 * 1024));
+                const usagePercent = Math.min(100, Math.round((u.totalStorageUsed / u.storageQuota) * 100));
+                const usageColor = usagePercent > 90 ? 'bg-rose-500' : usagePercent > 70 ? 'bg-amber-500' : 'bg-tech-blue';
+
+                return `
+                <tr class="hover:bg-white/[0.02] transition-colors group">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="relative">
+                                <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 group-hover:bg-tech-blue/10 group-hover:text-tech-blue transition-all">
+                                    <i class="fas fa-user text-sm"></i>
+                                </div>
+                                <div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${u.isActive ? 'bg-emerald-500' : 'bg-slate-500'}"></div>
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold text-white flex items-center gap-2">
+                                    ${u.username}
+                                    ${u.role === 'admin' ? '<span class="text-[8px] px-1.5 py-0.5 rounded bg-tech-blue/20 text-tech-blue uppercase">Admin</span>' : ''}
+                                </div>
+                                <div class="text-xs text-slate-500">${u.email}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="space-y-1.5 w-32">
+                            <div class="flex justify-between text-[10px] font-bold">
+                                <span class="text-slate-400">${usedMB}MB / ${quotaMB}MB</span>
+                                <span class="${usagePercent > 90 ? 'text-rose-400' : 'text-slate-500'}">${usagePercent}%</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                <div class="h-full ${usageColor} transition-all duration-500" style="width: ${usagePercent}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="flex items-center gap-1">
+                                <button onclick="togglePermission('${u._id}', 'canView', ${u.permissions?.canView})" class="w-7 h-7 flex items-center justify-center rounded-lg ${u.permissions?.canView ? 'bg-tech-blue/20 text-tech-blue border border-tech-blue/30' : 'bg-white/5 text-slate-600 border border-white/5'} transition-all" title="View Permission">
+                                    <i class="fas fa-eye text-[10px]"></i>
+                                </button>
+                                <button onclick="togglePermission('${u._id}', 'canUpload', ${u.permissions?.canUpload})" class="w-7 h-7 flex items-center justify-center rounded-lg ${u.permissions?.canUpload ? 'bg-tech-blue/20 text-tech-blue border border-tech-blue/30' : 'bg-white/5 text-slate-600 border border-white/5'} transition-all" title="Upload Permission">
+                                    <i class="fas fa-upload text-[10px]"></i>
+                                </button>
+                                <button onclick="togglePermission('${u._id}', 'canDelete', ${u.permissions?.canDelete})" class="w-7 h-7 flex items-center justify-center rounded-lg ${u.permissions?.canDelete ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-white/5 text-slate-600 border border-white/5'} transition-all" title="Delete Permission">
+                                    <i class="fas fa-trash text-[10px]"></i>
+                                </button>
+                                <button onclick="togglePermission('${u._id}', 'canSeeOthersFiles', ${u.permissions?.canSeeOthersFiles})" class="w-7 h-7 flex items-center justify-center rounded-lg ${u.permissions?.canSeeOthersFiles ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30' : 'bg-white/5 text-slate-600 border border-white/5'} transition-all" title="View Others' Files">
+                                    <i class="fas fa-users-rectangle text-[10px]"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="relative inline-flex items-center cursor-pointer scale-75">
+                                    <input type="checkbox" ${u.isActive ? 'checked' : ''} onchange="toggleUserStatus('${u._id}', this.checked)" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-tech-blue peer-checked:after:bg-white"></div>
+                                </label>
+                                <span class="text-[9px] font-bold uppercase tracking-widest ${u.isActive ? 'text-emerald-500' : 'text-slate-500'}">${u.isActive ? 'Active' : 'Disabled'}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-xs text-slate-400">
+                            ${new Date(u.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="openLogModal('${u._id}', '${u.username}')" class="w-9 h-9 rounded-xl bg-white/5 text-slate-400 hover:bg-tech-blue hover:text-white transition-all" title="Activity Logs">
+                                <i class="fas fa-list-check text-xs"></i>
+                            </button>
+                            <button onclick="openPasswordModal('${u._id}', '${u.username}')" class="w-9 h-9 rounded-xl bg-white/5 text-slate-400 hover:bg-amber-500 hover:text-white transition-all" title="Reset Password">
+                                <i class="fas fa-key text-xs"></i>
+                            </button>
+                            <button onclick="editQuota('${u._id}', ${u.storageQuota})" class="w-9 h-9 rounded-xl bg-white/5 text-slate-400 hover:bg-indigo-500 hover:text-white transition-all" title="Adjust Quota">
+                                <i class="fas fa-hard-drive text-xs"></i>
+                            </button>
+                            <button onclick="openAccessModal('${u._id}', '${u.username}')" class="w-9 h-9 rounded-xl bg-white/5 text-slate-400 hover:bg-emerald-500 hover:text-white transition-all" title="Manage Access">
+                                <i class="fas fa-shield-halved text-xs"></i>
+                            </button>
+                            <div class="w-px h-6 bg-white/10 mx-1"></div>
+                            <button onclick="deleteUser('${u._id}')" class="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all" title="Delete User">
+                                <i class="fas fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+        }
+
+        async function togglePermission(userId, permission, currentValue) {
+            const user = allUsers.find(u => u._id === userId);
+            const newPermissions = { ...user.permissions, [permission]: !currentValue };
+            const token = localStorage.getItem('token');
+
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/permissions`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ permissions: newPermissions })
+                });
+                if (!res.ok) throw new Error('Failed to update permissions');
+                
+                showToast("Permissions Updated", `${user.username}'s access updated`, "success");
+                loadUsers();
+            } catch (err) {
+                showToast("Update Failed", err.message, "error");
+            }
+        }
+
+        async function toggleUserStatus(userId, isActive) {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/status`, {
+                    method: 'PATCH',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ isActive })
+                });
+                if (!res.ok) throw new Error('Failed to update status');
+                
+                showToast(isActive ? "User Activated" : "User Disabled", "Account status modified successfully", isActive ? "success" : "amber");
+                loadUsers();
+            } catch (err) {
+                showToast("Status Toggle Failed", err.message, "error");
+            }
+        }
+
+        async function openLogModal(userId, username) {
+            const modal = document.getElementById('logModal');
+            const content = document.getElementById('logContent');
+            const subtitle = document.getElementById('logModalSubtitle');
+            
+            subtitle.textContent = `Activity history for ${username}`;
+            content.innerHTML = '<div class="flex items-center justify-center py-12"><div class="w-8 h-8 border-4 border-tech-blue border-t-transparent rounded-full animate-spin"></div></div>';
+            modal.classList.remove('hidden');
+
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`/api/admin/logs?userId=${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const logs = await res.json();
+                
+                if (logs.length === 0) {
+                    content.innerHTML = '<div class="text-center py-12 text-slate-500 italic">No activity recorded for this user</div>';
+                } else {
+                    content.innerHTML = logs.map(log => `
+                        <div class="glass p-4 rounded-2xl flex gap-4 hover:border-white/20 transition-all">
+                            <div class="w-10 h-10 rounded-xl ${getActionColor(log.action)} flex items-center justify-center shrink-0">
+                                <i class="fas ${getActionIcon(log.action)} text-xs"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-start">
+                                    <span class="text-sm font-bold text-white">${log.action}</span>
+                                    <span class="text-[10px] text-slate-500 font-medium">${new Date(log.timestamp).toLocaleString()}</span>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-1">${log.details || 'No details'}</p>
+                                <div class="flex items-center gap-3 mt-2">
+                                    <span class="text-[10px] text-slate-600 font-bold bg-white/5 px-2 py-0.5 rounded">IP: ${log.ip}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                document.getElementById('logCountLabel').textContent = `${logs.length} operations tracked`;
+            } catch (err) {
+                content.innerHTML = `<div class="text-rose-400 text-center py-12">Failed to load logs: ${err.message}</div>`;
+            }
+        }
+
+        function getActionColor(action) {
+            if (action.includes('DELETE')) return 'bg-rose-500/10 text-rose-500';
+            if (action.includes('UPLOAD')) return 'bg-emerald-500/10 text-emerald-500';
+            if (action.includes('LOGIN')) return 'bg-tech-blue/10 text-tech-blue';
+            return 'bg-amber-500/10 text-amber-500';
+        }
+
+        function getActionIcon(action) {
+            if (action.includes('DELETE')) return 'fa-trash-can';
+            if (action.includes('UPLOAD')) return 'fa-cloud-arrow-up';
+            if (action.includes('LOGIN')) return 'fa-right-to-bracket';
+            return 'fa-gear';
+        }
+
+        function closeLogModal() {
+            document.getElementById('logModal').classList.add('hidden');
+        }
+
+        let resetUserId = null;
+        function openPasswordModal(userId, username) {
+            resetUserId = userId;
+            document.getElementById('passwordModalUser').textContent = `Enter a new password for ${username}.`;
+            document.getElementById('newPasswordInput').value = '';
+            document.getElementById('passwordModal').classList.remove('hidden');
+            
+            document.getElementById('confirmPasswordBtn').onclick = async () => {
+                const newPassword = document.getElementById('newPasswordInput').value;
+                if (!newPassword || newPassword.length < 6) {
+                    showToast("Weak Password", "Minimum 6 characters required", "error");
+                    return;
+                }
+                
+                const token = localStorage.getItem('token');
+                try {
+                    const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}` 
+                        },
+                        body: JSON.stringify({ newPassword })
+                    });
+                    if (!res.ok) throw new Error('Reset failed');
+                    showToast("Success", "Password updated successfully", "success");
+                    closePasswordModal();
+                } catch (err) {
+                    showToast("Error", err.message, "error");
+                }
+            };
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.add('hidden');
+            resetUserId = null;
+        }
+
+        let accessUserId = null;
+        function openAccessModal(userId, username) {
+            accessUserId = userId;
+            const user = allUsers.find(u => u._id === userId);
+            const subtitle = document.getElementById('accessModalSubtitle');
+            const list = document.getElementById('accessUserList');
+            
+            subtitle.textContent = `Grant ${username} access to specific users`;
+            
+            // Filter out the user themselves and render others
+            const others = allUsers.filter(u => u._id !== userId);
+            
+            list.innerHTML = others.map(u => {
+                const isChecked = user.permissions?.permittedUsers?.includes(u._id) || false;
+                return `
+                    <label class="glass p-4 rounded-2xl flex items-center justify-between cursor-pointer hover:border-tech-blue/30 transition-all group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 group-hover:bg-tech-blue/10 group-hover:text-tech-blue transition-all">
+                                <i class="fas fa-user text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold text-white">${u.username}</div>
+                                <div class="text-[10px] text-slate-500">${u.email}</div>
+                            </div>
+                        </div>
+                        <input type="checkbox" value="${u._id}" ${isChecked ? 'checked' : ''} class="w-5 h-5 rounded border-white/10 bg-white/5 text-tech-blue focus:ring-tech-blue focus:ring-offset-0">
+                    </label>
+                `;
+            }).join('');
+
+            document.getElementById('accessModal').classList.remove('hidden');
+            
+            document.getElementById('saveAccessBtn').onclick = saveAccessPermissions;
+        }
+
+        function closeAccessModal() {
+            document.getElementById('accessModal').classList.add('hidden');
+            accessUserId = null;
+        }
+
+        async function saveAccessPermissions() {
+            const btn = document.getElementById('saveAccessBtn');
+            const list = document.getElementById('accessUserList');
+            const checkboxes = list.querySelectorAll('input[type="checkbox"]:checked');
+            const permittedUsers = Array.from(checkboxes).map(cb => cb.value);
+            
+            const user = allUsers.find(u => u._id === accessUserId);
+            const token = localStorage.getItem('token');
+            
+            const newPermissions = { 
+                ...user.permissions, 
+                permittedUsers 
+            };
+
+            try {
+                btn.classList.add('opacity-50', 'pointer-events-none');
+                btn.textContent = 'Saving...';
+                
+                const res = await fetch(`/api/admin/users/${accessUserId}/permissions`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ permissions: newPermissions })
+                });
+
+                if (!res.ok) throw new Error('Failed to update access list');
+                
+                showToast("Access Updated", `Custom monitoring list saved for ${user.username}`, "success");
+                loadUsers();
+                closeAccessModal();
+            } catch (err) {
+                showToast("Error", err.message, "error");
+            } finally {
+                btn.classList.remove('opacity-50', 'pointer-events-none');
+                btn.textContent = 'Save Changes';
+            }
+        }
+
+        async function editQuota(userId, currentQuota) {
+            const currentMB = Math.round(currentQuota / (1024 * 1024));
+            const newQuotaStr = prompt("Set new storage quota (in MB):", currentMB);
+            if (newQuotaStr === null) return;
+            
+            const newQuotaMB = parseInt(newQuotaStr);
+            if (isNaN(newQuotaMB) || newQuotaMB <= 0) {
+                showToast("Invalid Input", "Please enter a positive number", "error");
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/quota`, {
+                    method: 'PATCH',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ storageQuota: newQuotaMB })
+                });
+                if (!res.ok) throw new Error('Update failed');
+                showToast("Quota Updated", `Limit set to ${newQuotaMB}MB`, "success");
+                loadUsers();
+            } catch (err) {
+                showToast("Error", err.message, "error");
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Permanently remove this user account? All their files will remain but they will lose access.')) return;
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    showToast("User Removed", "Account deleted permanently", "success");
+                    loadUsers();
+                } else {
+                    throw new Error('Access Denied');
+                }
+            } catch (err) {
+                showToast("Deletion Failed", err.message, "error");
+            }
+        }
+
+        function showToast(title, message, type = 'brand') {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+
+            const icon = document.getElementById('toastIcon');
+            const head = document.getElementById('toastTitle');
+            const msg = document.getElementById('toastMessage');
+
+            const colors = {
+                brand: 'bg-tech-blue',
+                success: 'bg-emerald-500',
+                error: 'bg-rose-500',
+                amber: 'bg-amber-500'
+            };
+
+            const icons = {
+                brand: 'fa-info-circle',
+                success: 'fa-circle-check',
+                error: 'fa-triangle-exclamation',
+                amber: 'fa-user-slash'
+            };
+
+            if (icon) {
+                icon.className = `w-12 h-12 ${colors[type] || colors.brand} rounded-2xl flex items-center justify-center text-white text-xl shadow-lg`;
+                icon.innerHTML = `<i class="fas ${icons[type] || icons.brand}"></i>`;
+            }
+            if (head) head.textContent = title;
+            if (msg) msg.textContent = message;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                if (toast) toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" class="dark bg-[#0F172A]" style="background-color: #0F172A; color-scheme: dark;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hwai Technology - Identity Gateway</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/tailwind-config.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // Anti-flicker: Pre-check if already logged in
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (token && user) {
+            window.location.href = user.role === 'admin' ? '/admin' : '/';
+        } else {
+            document.documentElement.classList.add('ready');
+        }
+    </script>
+    <style>
+        html:not(.ready) body { opacity: 0; }
+        body { background: #0F172A; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; transition: opacity 0.3s ease-in-out; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6 bg-[#0F172A] text-slate-200">
+    <div class="w-full max-w-md animate-fade-in">
+        <div class="flex flex-col items-center mb-10">
+            <a href="/" class="mb-4">
+                <img src="/images/logo.png" alt="Hwai Technology" class="h-16 w-auto">
+            </a>
+            <p class="text-slate-500">Initialize Secure Environment</p>
+        </div>
+
+        <div class="glass p-8 rounded-3xl shadow-2xl">
+            <form id="registerForm" class="space-y-5">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Username</label>
+                    <div class="relative">
+                        <i class="fas fa-at absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="text" name="username" required placeholder="johndoe"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-tech-orange/50 focus:border-tech-orange transition-all text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Email Address</label>
+                    <div class="relative">
+                        <i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="email" name="email" required placeholder="name@example.com"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-tech-orange/50 focus:border-tech-orange transition-all text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Password</label>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="password" name="password" required placeholder="••••••••"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-tech-orange/50 focus:border-tech-orange transition-all text-sm">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-tech-orange hover:opacity-90 text-white font-bold py-3 rounded-xl shadow-lg shadow-tech-orange/20 transition-all active:scale-[0.98] mt-4">
+                    Create Account
+                </button>
+            </form>
+
+            <div class="mt-8 pt-8 border-t border-white/10 text-center">
+                <p class="text-slate-500 text-sm">
+                    Already registered? <a href="/login" class="text-tech-orange font-bold hover:underline">Sign In here</a>
+                </p>
+                <a href="/" class="inline-block mt-4 text-xs text-slate-600 hover:text-slate-400 transition-colors uppercase font-bold tracking-widest">
+                    <i class="fas fa-arrow-left me-1"></i> Back to Explorer
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            const btn = e.target.querySelector('button');
+            const originalText = btn.textContent;
+
+            try {
+                btn.disabled = true;
+                btn.textContent = 'Creating Account...';
+                
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                
+                if (res.ok) {
+                    alert('Success! Redirecting to login...');
+                    window.location.href = '/login';
+                } else {
+                    alert(result.message);
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            } catch (err) {
+                alert('Registration failed');
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        });
+    </script>
+</body>
+</html>
