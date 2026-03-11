@@ -65,9 +65,15 @@ export const createFolder = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'You do not have permission to create folders' });
     }
 
+    let effectiveParentId = parentId || null;
+    if (!effectiveParentId && role !== 'admin') {
+      const rootFolder = await Folder.findOne({ createdBy: userId, parentId: null });
+      if (rootFolder) effectiveParentId = rootFolder._id.toString();
+    }
+
     const folder = new Folder({
       name,
-      parentId: parentId || null,
+      parentId: effectiveParentId,
       createdBy: userId
     });
     await folder.save();
@@ -147,7 +153,11 @@ export const deleteFolder = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const folderPath = await getFolderPath(id, user.email);
+    let ownerEmail = user.email;
+    const owner = await User.findById(folder.createdBy);
+    if (owner) ownerEmail = owner.email;
+
+    const folderPath = await getFolderPath(id, ownerEmail);
     const folderName = folder.name;
 
     // Recursively delete from DB (simplified for now but targeting the folder's files/subfolders)

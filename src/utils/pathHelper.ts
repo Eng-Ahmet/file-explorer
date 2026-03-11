@@ -16,6 +16,11 @@ export const getFolderPath = async (folderId: string | mongoose.Types.ObjectId |
   const folder = await Folder.findById(folderId);
   if (!folder) return path.join('uploads', userIdentifier);
 
+  // If this is a root folder (directly representing the user's base directory)
+  if (folder.parentId === null) {
+    return path.join('uploads', userIdentifier);
+  }
+
   const parentPath = await getFolderPath(folder.parentId, userIdentifier);
   return path.join(parentPath, folder.name);
 };

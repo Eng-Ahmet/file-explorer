@@ -28,7 +28,7 @@ export const register = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // Create a root folder for the user
+    // Create a root folder for the user (Named after their email for admin view)
     const rootFolder = new Folder({
       name: user.email,
       parentId: null,
@@ -45,7 +45,7 @@ export const register = async (req: Request, res: Response) => {
     // Log Activity
     await logActivity(user._id.toString(), user.username, 'REGISTER', `New user registered with role: ${user.role}`, req);
 
-    res.status(201).json({ message: 'User registered successfully', rootFolderId: rootFolder._id });
+    res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }

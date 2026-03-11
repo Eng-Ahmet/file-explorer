@@ -20,7 +20,12 @@ router.use(authenticate);
 router.get('/', fileController.getFiles);
 router.post('/upload', upload.single('file'), fileController.uploadFile);
 router.delete('/:id', fileController.deleteFile);
+router.post('/bulk-delete', fileController.bulkDeleteFiles);
+router.post('/copy', fileController.copyFiles);
+router.post('/move', fileController.moveFiles);
 router.get('/view/:id', fileController.viewFile);
 router.get('/download/:id', fileController.downloadFile);
+router.post('/create', fileController.createFile);
+router.put('/:id/content', fileController.updateFileContent);
 
 export default router;

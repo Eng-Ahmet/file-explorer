@@ -47,16 +47,16 @@ const seedAdmin = async () => {
     console.log('Admin user seeded successfully');
 
     // Create root folder for admin
-    // const rootFolder = new Folder({
-    //   name: 'admin',
-    //   parentId: null,
-    //   createdBy: adminUser._id
-    // });
-    // await rootFolder.save();
-    //console.log('Admin root folder created');
+    const rootFolder = new Folder({
+      name: adminEmail,
+      parentId: null,
+      createdBy: adminUser._id
+    });
+    await rootFolder.save();
+    console.log('Admin root folder created');
 
     // Create physical directory for admin
-    const adminPath = path.join(process.cwd(), 'uploads', adminUser._id.toString());
+    const adminPath = path.join(process.cwd(), 'uploads', adminUser.email);
     if (!fs.existsSync(adminPath)) {
       fs.mkdirSync(adminPath, { recursive: true });
     }

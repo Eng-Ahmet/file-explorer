@@ -220,7 +220,22 @@ export const recalculateAllStorage = async (req: AuthRequest, res: Response) => 
 
       // 2. Discovery & Summation: Scan disk for files and add to DB if missing
       if (fs.existsSync(userBaseDir)) {
-        const scanDir = async (dirPath: string, parentFolderId: any = null) => {
+        // Ensure user has a root folder object in DB
+        let userRoot = await Folder.findOne({ createdBy: user._id, parentId: null });
+        if (!userRoot) {
+            userRoot = new Folder({
+                name: user.email,
+                parentId: null,
+                createdBy: user._id
+            });
+            await userRoot.save();
+        } else if (userRoot.name !== user.email) {
+            // Standardize name if it was different
+            userRoot.name = user.email;
+            await userRoot.save();
+        }
+
+        const scanDir = async (dirPath: string, parentFolderId: any) => {
           const items = fs.readdirSync(dirPath);
           for (const item of items) {
             const fullPath = path.join(dirPath, item);
@@ -228,14 +243,24 @@ export const recalculateAllStorage = async (req: AuthRequest, res: Response) => 
 
             if (stats.isDirectory()) {
               // Try to find matching folder in DB
-              const folder = await Folder.findOne({ 
+              let folder = await Folder.findOne({ 
                 name: item, 
                 createdBy: user._id,
                 parentId: parentFolderId 
               });
               
+              if (!folder) {
+                console.log(`Discovering missing folder: ${item} for user ${user.email}`);
+                folder = new Folder({
+                  name: item,
+                  parentId: parentFolderId,
+                  createdBy: user._id
+                });
+                await folder.save();
+              }
+
               // Recurse into subdirectories
-              await scanDir(fullPath, folder ? folder._id : parentFolderId);
+              await scanDir(fullPath, folder._id);
             } else {
               physicalBytes += stats.size;
               
@@ -263,7 +288,7 @@ export const recalculateAllStorage = async (req: AuthRequest, res: Response) => 
           }
         };
 
-        await scanDir(userBaseDir);
+        await scanDir(userBaseDir, userRoot._id);
       }
 
       const prevSize = user.totalStorageUsed;

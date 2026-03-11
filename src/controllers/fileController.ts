@@ -31,17 +31,25 @@ export const getFiles = async (req: AuthRequest, res: Response) => {
     }
     
     if (role !== 'admin') {
+      const userFolders = await Folder.find({ createdBy: userId });
+      const userFolderIds = userFolders.map(f => f._id);
+
       if (user.permissions.canSeeOthersFiles) {
         if (user.permissions.permittedUsers && user.permissions.permittedUsers.length > 0) {
-          // Can see their own + specific permitted users
-          query.uploadedBy = { $in: [userId, ...user.permissions.permittedUsers] };
+          // Can see their own + specific permitted users + files in their folders
+          query.$or = [
+            { uploadedBy: { $in: [userId, ...user.permissions.permittedUsers] } },
+            { folderId: { $in: userFolderIds } }
+          ];
         } else {
-          // If toggle is ON but list is empty, assume "See All" (Legacy/Super-User behavior)
-          // No uploadedBy filter = see all (unless we decide to restrict to "none" which might break things)
+          // Sees all
         }
       } else {
-        // Can only see their own
-        query.uploadedBy = userId;
+        // Can only see their own uploads OR files in their owned folders
+        query.$or = [
+          { uploadedBy: userId },
+          { folderId: { $in: userFolderIds } }
+        ];
       }
     }
 
@@ -150,7 +158,16 @@ export const deleteFile = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'You do not have permission to delete files' });
     }
 
-    if (role !== 'admin' && file.uploadedBy.toString() !== userId) {
+    // Permission check: admin OR uploader OR folder owner
+    let isFolderOwner = false;
+    if (file.folderId) {
+      const folder = await Folder.findById(file.folderId);
+      if (folder && folder.createdBy.toString() === userId) {
+        isFolderOwner = true;
+      }
+    }
+
+    if (role !== 'admin' && file.uploadedBy.toString() !== userId && !isFolderOwner) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -192,7 +209,16 @@ export const viewFile = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'You do not have permission to view files' });
     }
 
-    if (role !== 'admin' && file.uploadedBy.toString() !== userId) {
+    // Permission check: admin OR uploader OR folder owner
+    let isFolderOwner = false;
+    if (file.folderId) {
+      const folder = await Folder.findById(file.folderId);
+      if (folder && folder.createdBy.toString() === userId) {
+        isFolderOwner = true;
+      }
+    }
+
+    if (role !== 'admin' && file.uploadedBy.toString() !== userId && !isFolderOwner) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -200,10 +226,16 @@ export const viewFile = async (req: AuthRequest, res: Response) => {
     const ext = path.extname(file.path).toLowerCase();
     let contentType = 'application/octet-stream';
     if (ext === '.pdf') contentType = 'application/pdf';
-    else if (ext === '.md') contentType = 'text/plain'; 
-    else if (ext === '.txt') contentType = 'text/plain';
+    else if (ext === '.md') contentType = 'text/markdown'; 
+    else if (['.txt', '.log', '.json', '.js', '.ts', '.css', '.html'].includes(ext)) contentType = 'text/plain';
     else if (ext === '.png') contentType = 'image/png';
     else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+    else if (ext === '.gif') contentType = 'image/gif';
+    else if (ext === '.svg') contentType = 'image/svg+xml';
+    else if (ext === '.mp4') contentType = 'video/mp4';
+    else if (ext === '.webm') contentType = 'video/webm';
+    else if (ext === '.mp3') contentType = 'audio/mpeg';
+    else if (ext === '.wav') contentType = 'audio/wav';
 
     res.setHeader('Content-Type', contentType);
     // Log Activity
@@ -231,15 +263,313 @@ export const downloadFile = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'You do not have permission to download files' });
     }
 
-    if (role !== 'admin' && file.uploadedBy.toString() !== userId) {
+    // Permission check: admin OR uploader OR folder owner
+    let isFolderOwner = false;
+    if (file.folderId) {
+      const folder = await Folder.findById(file.folderId);
+      if (folder && folder.createdBy.toString() === userId) {
+        isFolderOwner = true;
+      }
+    }
+
+    if (role !== 'admin' && file.uploadedBy.toString() !== userId && !isFolderOwner) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
     // Log Activity
     await logActivity(userId as any, user.username, 'DOWNLOAD_FILE', `Downloaded: ${file.originalName}`, req);
-
     res.download(file.path, file.originalName);
   } catch (err) {
     res.status(500).json({ message: 'Error downloading file', error: err });
+  }
+};
+
+export const bulkDeleteFiles = async (req: AuthRequest, res: Response) => {
+  const { ids } = req.body;
+  const userId = req.user?.id;
+  const role = req.user?.role;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: 'No file IDs provided' });
+  }
+
+  try {
+    const user = await User.findById(userId);
+    if (!user || (!user.permissions.canDelete && role !== 'admin')) {
+      return res.status(403).json({ message: 'You do not have permission to delete files' });
+    }
+
+    const files = await File.find({ _id: { $in: ids } });
+    const deletedIds: string[] = [];
+
+    for (const file of files) {
+      if (role === 'admin' || file.uploadedBy.toString() === userId) {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+        deletedIds.push(file._id.toString());
+      }
+    }
+
+    await File.deleteMany({ _id: { $in: deletedIds } });
+
+    const fileOwners = [...new Set(files.map(f => f.uploadedBy.toString()))];
+    for (const ownerId of fileOwners) {
+      const ownerSize = files.filter(f => f.uploadedBy.toString() === ownerId).reduce((acc, f) => acc + f.size, 0);
+      await User.findByIdAndUpdate(ownerId, { $inc: { totalStorageUsed: -ownerSize } });
+    }
+
+    await logActivity(userId as any, user.username, 'BULK_DELETE', `Deleted ${deletedIds.length} files`, req);
+
+    res.json({ message: `Successfully deleted ${deletedIds.length} files`, deletedIds });
+  } catch (err) {
+    res.status(500).json({ message: 'Error during bulk delete', error: err });
+  }
+};
+
+export const copyFiles = async (req: AuthRequest, res: Response) => {
+  const { ids, targetFolderId } = req.body;
+  const userId = req.user?.id;
+  const role = req.user?.role;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: 'No file IDs provided' });
+  }
+
+  try {
+    const user = await User.findById(userId);
+    if (!user || (!user.permissions.canUpload && role !== 'admin')) {
+      return res.status(403).json({ message: 'You do not have permission to copy files' });
+    }
+
+    const files = await File.find({ _id: { $in: ids } });
+    let ownerEmail = user.email;
+
+    if (targetFolderId) {
+      const parentFolder = await Folder.findById(targetFolderId);
+      if (parentFolder) {
+        const owner = await User.findById(parentFolder.createdBy);
+        if (owner) ownerEmail = owner.email;
+      }
+    }
+
+    const targetDir = await getFolderPath(targetFolderId, ownerEmail);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const copiedFiles = [];
+    let totalSizeAdded = 0;
+
+    for (const file of files) {
+      if (role === 'admin' || file.uploadedBy.toString() === userId) {
+        const newFileName = `${Date.now()}-copy-${file.originalName}`;
+        const newPath = path.join(targetDir, newFileName);
+
+        if (fs.existsSync(file.path)) {
+          fs.copyFileSync(file.path, newPath);
+          
+          const newFile = new File({
+            name: newFileName,
+            originalName: `Copy of ${file.originalName}`,
+            displayName: `Copy of ${file.originalName}`,
+            size: file.size,
+            type: file.type,
+            path: newPath,
+            folderId: targetFolderId || null,
+            uploadedBy: userId
+          });
+
+          await newFile.save();
+          copiedFiles.push(newFile);
+          totalSizeAdded += file.size;
+        }
+      }
+    }
+
+    await User.findByIdAndUpdate(userId, { $inc: { totalStorageUsed: totalSizeAdded } });
+    await logActivity(userId as any, user.username, 'COPY_FILES', `Copied ${copiedFiles.length} files`, req);
+
+    res.json({ message: `Successfully copied ${copiedFiles.length} files`, copiedFiles });
+  } catch (err) {
+    res.status(500).json({ message: 'Error copying files', error: err });
+  }
+};
+
+export const moveFiles = async (req: AuthRequest, res: Response) => {
+  const { ids, targetFolderId } = req.body;
+  const userId = req.user?.id;
+  const role = req.user?.role;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: 'No file IDs provided' });
+  }
+
+  try {
+    const user = await User.findById(userId);
+    if (!user || (!user.permissions.canUpload && role !== 'admin')) {
+      return res.status(403).json({ message: 'You do not have permission to move files' });
+    }
+
+    const files = await File.find({ _id: { $in: ids } });
+    let ownerEmail = user.email;
+
+    if (targetFolderId) {
+      const parentFolder = await Folder.findById(targetFolderId);
+      if (parentFolder) {
+        const owner = await User.findById(parentFolder.createdBy);
+        if (owner) ownerEmail = owner.email;
+      }
+    }
+
+    const targetDir = await getFolderPath(targetFolderId, ownerEmail);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const movedFiles = [];
+
+    for (const file of files) {
+      if (role === 'admin' || file.uploadedBy.toString() === userId) {
+        const newPath = path.join(targetDir, file.name);
+
+        if (fs.existsSync(file.path)) {
+          fs.renameSync(file.path, newPath);
+          file.path = newPath;
+          file.folderId = targetFolderId || null;
+          await file.save();
+          movedFiles.push(file);
+        }
+      }
+    }
+
+    await logActivity(userId as any, user.username, 'MOVE_FILES', `Moved ${movedFiles.length} files`, req);
+
+    res.json({ message: `Successfully moved ${movedFiles.length} files`, movedFiles });
+  } catch (err) {
+    res.status(500).json({ message: 'Error moving files', error: err });
+  }
+};
+
+export const createFile = async (req: AuthRequest, res: Response) => {
+  const { name, folderId } = req.body;
+  const userId = req.user?.id;
+  const role = req.user?.role;
+
+  if (!name) {
+    return res.status(400).json({ message: 'File name is required' });
+  }
+
+  try {
+    const user = await User.findById(userId);
+    if (!user || (!user.permissions.canUpload && role !== 'admin')) {
+      return res.status(403).json({ message: 'You do not have permission to create files' });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Account is deactivated' });
+    }
+
+    let targetFolderId = folderId;
+    if (!targetFolderId && role !== 'admin') {
+      const rootFolder = await Folder.findOne({ createdBy: userId, parentId: null });
+      if (rootFolder) targetFolderId = rootFolder._id.toString();
+    }
+
+    let ownerEmail = user.email;
+    if (targetFolderId) {
+      const parentFolder = await Folder.findById(targetFolderId);
+      if (parentFolder) {
+        const owner = await User.findById(parentFolder.createdBy);
+        if (owner) ownerEmail = owner.email;
+      }
+    }
+
+    const targetDir = await getFolderPath(targetFolderId, ownerEmail);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const fileName = `${Date.now()}-${name}`;
+    const filePath = path.join(targetDir, fileName);
+
+    // Create an empty file
+    fs.writeFileSync(filePath, '');
+
+    const file = new File({
+      name: fileName,
+      originalName: name,
+      displayName: name,
+      size: 0,
+      type: path.extname(name).substring(1) || 'txt',
+      path: filePath,
+      folderId: targetFolderId || null,
+      uploadedBy: userId
+    });
+
+    await file.save();
+
+    await logActivity(userId as any, user.username, 'CREATE_FILE', `Created file: ${name}`, req);
+
+    res.status(201).json(file);
+  } catch (err) {
+    res.status(500).json({ message: 'Error creating file', error: err });
+  }
+};
+
+export const updateFileContent = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { content } = req.body;
+  const userId = req.user?.id;
+  const role = req.user?.role;
+
+  if (content === undefined) {
+    return res.status(400).json({ message: 'Content is required' });
+  }
+
+  try {
+    const file = await File.findById(id);
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user || (!user.permissions.canUpload && role !== 'admin')) {
+      return res.status(403).json({ message: 'You do not have permission to edit files' });
+    }
+
+    // Permission check: admin OR uploader OR folder owner
+    let isFolderOwner = false;
+    if (file.folderId) {
+      const folder = await Folder.findById(file.folderId);
+      if (folder && folder.createdBy.toString() === userId) {
+        isFolderOwner = true;
+      }
+    }
+
+    if (role !== 'admin' && file.uploadedBy.toString() !== userId && !isFolderOwner) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Physical update
+    fs.writeFileSync(file.path, content);
+    
+    // Update metadata
+    const stats = fs.statSync(file.path);
+    const oldSize = file.size;
+    file.size = stats.size;
+    await file.save();
+
+    // Update user usage
+    const sizeDiff = stats.size - oldSize;
+    if (sizeDiff !== 0) {
+      await User.findByIdAndUpdate(file.uploadedBy, { $inc: { totalStorageUsed: sizeDiff } });
+    }
+
+    await logActivity(userId as any, user.username, 'EDIT_FILE', `Edited file: ${file.originalName}`, req);
+
+    res.json({ message: 'File updated successfully', file });
+  } catch (err) {
+    res.status(500).json({ message: 'Error updating file', error: err });
   }
 };
