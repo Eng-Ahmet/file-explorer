@@ -7,7 +7,7 @@ import os from 'os';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import path from 'path';
-import Folder from '../models/Folder.ts';
+import Folder from '../models/Folder.js';
 
 export const getAllUsers = async (req: AuthRequest, res: Response) => {
   try {

@@ -6,10 +6,10 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
-import authRoutes from './src/routes/auth.js';
-import fileRoutes from './src/routes/files.js';
-import folderRoutes from './src/routes/folders.js';
-import adminRoutes from './src/routes/admin.js';
+import authRoutes from './routes/auth.js';
+import fileRoutes from './routes/files.js';
+import folderRoutes from './routes/folders.js';
+import adminRoutes from './routes/admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
