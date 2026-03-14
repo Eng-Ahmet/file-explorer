@@ -45,12 +45,12 @@ function setupMobileMenu() {
 function updateHeaderUser() {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) return;
-    
+
     try {
         const user = JSON.parse(storedUser);
         const nameEl = document.getElementById('userName');
         const roleEl = document.getElementById('userRole');
-        
+
         if (nameEl) nameEl.textContent = user.username || user.email;
         if (roleEl) roleEl.textContent = user.role || 'User';
 
@@ -65,7 +65,7 @@ function renderNavigation(role) {
     if (!nav) return;
 
     const currentPath = window.location.pathname;
-    
+
     const adminLinks = [
         { href: '/admin', id: 'navAdmin', label: 'Dashboard', icon: 'fa-tachometer-alt' },
         { href: '/admin/projects', id: 'navAdminProjects', label: 'Projects', icon: 'fa-project-diagram' },
@@ -96,6 +96,41 @@ function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = '/login';
+}
+
+function showToast(message, type = 'brand') {
+    const toast = document.getElementById('toast');
+    if (!toast) {
+        console.warn('Toast element not found');
+        return;
+    }
+
+    const icon = document.getElementById('toastIcon');
+    const msg = document.getElementById('toastMessage');
+
+    const themes = {
+        brand: { bg: 'bg-tech-blue/20', text: 'text-tech-blue', icon: 'fa-info-circle' },
+        success: { bg: 'bg-emerald-500/20', text: 'text-emerald-500', icon: 'fa-check-circle' },
+        error: { bg: 'bg-rose-500/20', text: 'text-rose-500', icon: 'fa-exclamation-triangle' },
+        info: { bg: 'bg-indigo-500/20', text: 'text-indigo-500', icon: 'fa-info-circle' }
+    };
+
+    const theme = themes[type] || themes.brand;
+
+    if (icon) {
+        icon.className = `w-10 h-10 rounded-xl flex items-center justify-center ${theme.text} ${theme.bg} border border-white/5`;
+        icon.innerHTML = `<i class="fas ${theme.icon} text-lg"></i>`;
+    }
+
+    if (msg) msg.textContent = message;
+
+    toast.classList.remove('translate-y-20', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+
+    setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+    }, 4000);
 }
 
 // Make globally available

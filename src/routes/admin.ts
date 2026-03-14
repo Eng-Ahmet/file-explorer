@@ -11,6 +11,7 @@ router.get('/users', adminController.getAllUsers);
 router.get('/stats', adminController.getStorageStats);
 router.get('/diagnostics', adminController.getSystemDiagnostics);
 router.get('/logs', adminController.getActivityLogs);
+router.delete('/logs/clear', adminController.clearActivityLogs);
 
 router.put('/users/:id/role', adminController.updateUserRole);
 router.put('/users/:id/permissions', adminController.updateUserPermissions);

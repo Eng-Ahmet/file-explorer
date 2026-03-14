@@ -1,34 +1,41 @@
-<header class="h-16 glass flex items-center px-4 md:px-12 justify-between z-50 sticky top-0 transition-all duration-300">
+<header
+    class="h-16 glass flex items-center px-4 md:px-12 justify-between z-50 sticky top-0 transition-all duration-300">
     <!-- Branding: Image Only -->
     <div class="flex items-center">
         <a href="/files" class="group transition-transform active:scale-95">
-            <img src="/images/logo.png" alt="Hwai" class="h-8 w-auto filter drop-shadow-[0_0_12px_rgba(56,189,248,0.2)] group-hover:drop-shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all">
+            <img src="/images/logo.png" alt="Hwai"
+                class="h-8 w-auto filter drop-shadow-[0_0_12px_rgba(56,189,248,0.2)] group-hover:drop-shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all">
         </a>
     </div>
 
-    <!-- Navigation: Professional Buttons -->
-    <nav id="mainNav" class="hidden lg:flex items-center gap-3">
-        <!-- Links will be injected by JavaScript or dictated by EJS logic -->
-        <% if (locals.isAdminPage !== undefined) { %>
-            <!-- EJS fallback if needed, but we'll prefer JS for dynamic role handling if possible -->
-        <% } %>
-    </nav>
+    <!-- Navigation moved to sidebar -->
 
     <!-- User Profile & Session -->
     <div class="flex items-center gap-2 sm:gap-8">
-        <div id="userSection" class="flex items-center gap-2 sm:gap-4 border-l-0 sm:border-l border-white/5 pl-0 sm:pl-8 h-8">
+        <div id="userSection"
+            class="flex items-center gap-2 sm:gap-4 border-l-0 sm:border-l border-white/5 pl-0 sm:pl-8 h-8">
             <div class="hidden sm:flex flex-col items-end">
-                <span id="userName" class="text-[11px] font-bold text-slate-100 uppercase tracking-wide">Loading...</span>
-                <span id="userRole" class="text-[9px] font-black text-tech-blue uppercase tracking-[0.2em] mt-1.5 opacity-80">Connected</span>
+                <span id="userName"
+                    class="text-[11px] font-bold text-slate-100 uppercase tracking-wide">Loading...</span>
+                <span id="userRole"
+                    class="text-[9px] font-black text-tech-blue uppercase tracking-[0.2em] mt-1.5 opacity-80">Connected</span>
             </div>
-            
-            <button onclick="logout()" class="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-rose-500 transition-all cursor-pointer hover:bg-rose-500/5 rounded-lg" title="Terminate Session">
+
+            <button onclick="logout()"
+                class="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-rose-500 transition-all cursor-pointer hover:bg-rose-500/5 rounded-lg"
+                title="Terminate Session">
                 <i class="fas fa-power-off text-sm"></i>
             </button>
         </div>
 
-        <button id="mobileMenuBtn" class="lg:hidden w-10 h-10 flex items-center justify-center text-slate-400">
+        <!-- Left Menu (Navigation) -->
+        <button id="mobileMenuBtn" class="md:hidden w-10 h-10 flex items-center justify-center text-slate-400">
             <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Right Menu (File Tree) -->
+        <button id="openRightMenuBtn" class="md:hidden w-10 h-10 flex items-center justify-center text-slate-400">
+            <i class="fas fa-folder-tree"></i>
         </button>
     </div>
 </header>

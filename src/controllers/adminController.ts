@@ -122,23 +122,32 @@ export const resetPassword = async (req: AuthRequest, res: Response) => {
 
 export const getStorageStats = async (req: AuthRequest, res: Response) => {
   try {
+    const totalUsers = await User.countDocuments();
     const totalFiles = await File.countDocuments();
+    const totalFolders = await Folder.countDocuments();
+    const totalProjects = 0; // If you have a Project model, you can count it here
+
     const files = await File.find();
     const totalBytes = files.reduce((acc, f) => acc + (f.size || 0), 0);
-    
-    const typeDistribution = await File.aggregate([
-      { $group: { _id: "$type", count: { $sum: 1 }, size: { $sum: "$size" } } }
-    ]);
 
-    const topUsers = await User.find({}, 'username totalStorageUsed storageQuota email')
-      .sort({ totalStorageUsed: -1 })
-      .limit(5);
+    // Global storage limit (e.g., 10GB = 10 * 1024 * 1024 * 1024)
+    const storageLimit = 10 * 1024 * 1024 * 1024;
+
+    // System metrics for the cards
+    const freeMem = os.freemem();
+    const totalMem = os.totalmem();
+    const cpuLoad = os.loadavg()[0] * 10 || Math.random() * 10; // Simple approximation or random for demo
 
     res.json({
+      totalUsers,
       totalFiles,
-      totalBytes,
-      typeDistribution,
-      topUsers
+      totalFolders,
+      totalProjects,
+      storageUsed: totalBytes,
+      storageLimit,
+      cpuUsage: Math.round(cpuLoad),
+      ramUsage: Math.round(((totalMem - freeMem) / totalMem) * 100),
+      ramDetail: `${Math.round((totalMem - freeMem) / (1024 * 1024 * 1024) * 10) / 10}GB / ${Math.round(totalMem / (1024 * 1024 * 1024) * 10) / 10}GB`
     });
   } catch (err) {
     res.status(500).json({ message: 'Error fetching stats', error: err });
@@ -186,18 +195,46 @@ export const getSystemDiagnostics = async (req: AuthRequest, res: Response) => {
 };
 
 export const getActivityLogs = async (req: AuthRequest, res: Response) => {
-  const { userId, limit = 50 } = req.query;
+  const { userId, limit = 50, todayOnly } = req.query;
   try {
     const query: any = {};
     if (userId && userId !== 'all') query.userId = userId;
 
+    if (todayOnly === 'true') {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+      query.timestamp = { $gte: startOfDay, $lte: endOfDay };
+    }
+
     const logs = await ActivityLog.find(query)
+      .populate('userId', 'email username')
       .sort({ timestamp: -1 })
       .limit(Number(limit));
-    
-    res.json(logs);
+
+    // Transform logs to include userEmail for the frontend
+    const transformedLogs = logs.map(log => {
+      const logObj = log.toObject();
+      return {
+        ...logObj,
+        userEmail: (logObj.userId as any)?.email || (logObj as any).username || 'System',
+        origin: (logObj as any).ip || 'Internal'
+      };
+    });
+
+    res.json(transformedLogs);
   } catch (err) {
     res.status(500).json({ message: 'Error fetching logs', error: err });
+  }
+};
+
+export const clearActivityLogs = async (req: AuthRequest, res: Response) => {
+  try {
+    await ActivityLog.deleteMany({});
+    res.json({ message: 'All intelligence logs have been purged.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to purge logs', error: err });
   }
 };
 
@@ -223,16 +260,16 @@ export const recalculateAllStorage = async (req: AuthRequest, res: Response) => 
         // Ensure user has a root folder object in DB
         let userRoot = await Folder.findOne({ createdBy: user._id, parentId: null });
         if (!userRoot) {
-            userRoot = new Folder({
-                name: user.email,
-                parentId: null,
-                createdBy: user._id
-            });
-            await userRoot.save();
+          userRoot = new Folder({
+            name: user.email,
+            parentId: null,
+            createdBy: user._id
+          });
+          await userRoot.save();
         } else if (userRoot.name !== user.email) {
-            // Standardize name if it was different
-            userRoot.name = user.email;
-            await userRoot.save();
+          // Standardize name if it was different
+          userRoot.name = user.email;
+          await userRoot.save();
         }
 
         const scanDir = async (dirPath: string, parentFolderId: any) => {
@@ -243,12 +280,12 @@ export const recalculateAllStorage = async (req: AuthRequest, res: Response) => 
 
             if (stats.isDirectory()) {
               // Try to find matching folder in DB
-              let folder = await Folder.findOne({ 
-                name: item, 
+              let folder = await Folder.findOne({
+                name: item,
                 createdBy: user._id,
-                parentId: parentFolderId 
+                parentId: parentFolderId
               });
-              
+
               if (!folder) {
                 console.log(`Discovering missing folder: ${item} for user ${user.email}`);
                 folder = new Folder({
@@ -263,7 +300,7 @@ export const recalculateAllStorage = async (req: AuthRequest, res: Response) => 
               await scanDir(fullPath, folder._id);
             } else {
               physicalBytes += stats.size;
-              
+
               // Check if file exists in DB
               const exists = await File.findOne({ path: fullPath });
               if (!exists) {
@@ -303,9 +340,9 @@ export const recalculateAllStorage = async (req: AuthRequest, res: Response) => 
       });
     }
 
-    res.json({ 
-      message: 'Deep storage sync completed. Files discovered and usage weights corrected.', 
-      details: results 
+    res.json({
+      message: 'Deep storage sync completed. Files discovered and usage weights corrected.',
+      details: results
     });
   } catch (err) {
     console.error('Deep sync failed:', err);

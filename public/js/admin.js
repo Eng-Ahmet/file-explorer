@@ -1,400 +1,386 @@
-// Global state
 const token = localStorage.getItem('token');
-window.allUsers = window.allUsers || [];
-let currentEditingUser = null;
-let selectedPermittedUsers = [];
+const user = JSON.parse(localStorage.getItem('user'));
+
+if (!token || user.role !== 'admin') {
+    window.location.href = '/login';
+}
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (!token) {
-        window.location.href = '/login';
+    loadStats();
+    loadLogs();
+    loadUsers(); // This was missing to load users in users.ejs
+    setupEventListeners();
+});
+
+async function loadUsers() {
+    const tableBody = document.getElementById('usersTableBody');
+    if (!tableBody) return;
+
+    try {
+        const res = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const users = await res.json();
+        window.allUsers = users;
+        renderUsers(users);
+    } catch (err) {
+        console.error('Users error:', err);
+    }
+}
+
+function renderUsers(users) {
+    const tableBody = document.getElementById('usersTableBody');
+    if (!tableBody) return;
+
+    if (!users || users.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="5" class="px-8 py-12 text-center text-slate-500">No personnel records found</td></tr>';
         return;
     }
 
-    loadStats();
-    loadDiagnostics();
-    loadUsers();
+    tableBody.innerHTML = users.map(user => {
+        const date = new Date(user.createdAt).toLocaleDateString();
+        const storageUsage = ((user.totalStorageUsed || 0) / (user.storageQuota || 1073741824) * 100).toFixed(1);
+        const usedMB = ((user.totalStorageUsed || 0) / (1024 * 1024)).toFixed(1);
 
-    // Event Listeners
-    document.getElementById('refreshStatsBtn')?.addEventListener('click', () => {
-        loadStats();
-        loadDiagnostics();
-        loadUsers();
-    });
-
-    document.getElementById('syncStorageBtn')?.addEventListener('click', syncStorage);
-    document.getElementById('userSearchInput')?.addEventListener('input', filterUsers);
-    document.getElementById('roleFilter')?.addEventListener('change', filterUsers);
-    document.getElementById('statusFilter')?.addEventListener('change', filterUsers);
-});
+        return `
+            <tr class="hover:bg-white/[0.02] transition-colors group">
+                <td class="px-8 py-6">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-tech-blue/10 flex items-center justify-center text-tech-blue border border-tech-blue/20">
+                            <i class="fas fa-user-shield text-xs"></i>
+                        </div>
+                        <div>
+                            <div class="text-sm font-bold text-white mb-0.5">${user.username}</div>
+                            <div class="text-[10px] text-slate-500 font-medium">${user.email}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-8 py-6">
+                    <div class="w-full max-w-[120px]">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-[10px] font-bold text-slate-400 capitalize">${usedMB} MB</span>
+                            <span class="text-[10px] font-black text-tech-blue">${storageUsage}%</span>
+                        </div>
+                        <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                            <div class="h-full bg-tech-blue rounded-full transition-all duration-1000" style="width: ${storageUsage}%"></div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-8 py-6 text-center">
+                    <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${user.role === 'admin' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-slate-500/10 text-slate-400 border border-white/5'}">
+                        ${user.role}
+                    </span>
+                </td>
+                <td class="px-8 py-6 text-[10px] font-bold text-slate-500">${date}</td>
+                <td class="px-8 py-6 text-right">
+                    <button onclick="editUser('${user._id}')" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 transition-all border border-white/5 inline-flex">
+                        <i class="fas fa-cog text-[10px]"></i>
+                    </button>
+                </td>
+            </tr>`;
+    }).join('');
+}
 
 async function loadStats() {
     try {
         const res = await fetch('/api/admin/stats', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!res.ok) throw new Error('Failed to load stats');
-        const stats = await res.json();
-
-        document.getElementById('totalUsersCard').textContent = stats.topUsers.length; // Use actual count if provided
-        document.getElementById('totalStorageCard').textContent = formatSize(stats.totalBytes);
-        
-        // Find current user's percentage or total (mocking global percentage if not in API)
-        const totalQuota = stats.topUsers.reduce((acc, u) => acc + (u.storageQuota || 0), 0);
-        const percent = totalQuota > 0 ? Math.round((stats.totalBytes / totalQuota) * 100) : 0;
-        document.getElementById('storagePercentLabel').textContent = `${percent}% Capacity`;
-    } catch (err) {
-        console.error('Stats error:', err);
-    }
-}
-
-async function loadDiagnostics() {
-    try {
-        const res = await fetch('/api/admin/diagnostics', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Failed to load diagnostics');
-        const diag = await res.json();
-
-        document.getElementById('cpuLoadCard').textContent = `${Math.round(diag.cpu.load[0] * 100)}%`;
-        document.getElementById('ramUsageCard').textContent = `${Math.round(diag.memory.usage)}%`;
-        document.getElementById('ramDetailLabel').textContent = `${formatSize(diag.memory.total - diag.memory.free)} / ${formatSize(diag.memory.total)}`;
-    } catch (err) {
-        console.error('Diagnostics error:', err);
-    }
-}
-
-async function loadUsers() {
-    try {
-        const res = await fetch('/api/admin/users', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Failed to load users');
-        window.allUsers = await res.json();
-        
-        // Update stats count accurately
-        const totalUsersEl = document.getElementById('totalUsersCard');
-        if (totalUsersEl) totalUsersEl.textContent = window.allUsers.length;
-
-        renderUsers(window.allUsers);
-    } catch (err) {
-        console.error('Users error:', err);
-        showToast('Error', 'Failed to load user intelligence data', 'error');
-    }
-}
-
-function renderUsers(users) {
-    const tbody = document.getElementById('usersTableBody');
-    if (!tbody) return;
-
-    tbody.innerHTML = users.map(user => {
-        const used = user.totalStorageUsed || 0;
-        const quota = user.storageQuota || (100 * 1024 * 1024);
-        const percent = Math.min(100, Math.round((used / quota) * 100));
-        
-        return `
-            <tr class="hover:bg-white/[0.02] transition-colors group">
-                <td class="px-8 py-6">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-tech-blue/10 flex items-center justify-center text-tech-blue font-black border border-tech-blue/20">
-                            ${user.username[0].toUpperCase()}
-                        </div>
-                        <div>
-                            <div class="text-sm font-bold text-white">${user.username}</div>
-                            <div class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">${user.email}</div>
-                        </div>
-                    </div>
-                </td>
-                <td class="px-8 py-6">
-                    <div class="space-y-2 max-w-[160px]">
-                        <div class="flex justify-between text-[10px] font-black uppercase tracking-tighter">
-                            <span class="text-slate-400">${formatSize(used)}</span>
-                            <span class="text-slate-600">${formatSize(quota)}</span>
-                        </div>
-                        <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                            <div class="h-full ${percent > 90 ? 'bg-rose-500' : percent > 70 ? 'bg-amber-500' : 'bg-tech-blue'} transition-all duration-1000" style="width: ${percent}%"></div>
-                        </div>
-                    </div>
-                </td>
-                <td class="px-8 py-6 text-center">
-                    <div class="flex items-center justify-center gap-2">
-                        <span class="px-3 py-1 rounded-lg border border-white/5 bg-white/5 text-[9px] font-black uppercase tracking-widest ${user.role === 'admin' ? 'text-tech-blue' : 'text-slate-400'}">${user.role}</span>
-                        <span class="px-3 py-1 rounded-lg border border-white/5 bg-white/5 text-[9px] font-black uppercase tracking-widest ${user.isActive ? 'text-emerald-500' : 'text-rose-500'}">${user.isActive ? 'Active' : 'Disabled'}</span>
-                    </div>
-                </td>
-                <td class="px-8 py-6">
-                    <span class="text-xs text-slate-500 font-medium">${new Date(user.createdAt).toLocaleDateString()}</span>
-                </td>
-                <td class="px-8 py-6 text-right">
-                    <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onclick="openEditUserModal('${user._id}')" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 transition-all border border-white/5" title="Modify Node">
-                            <i class="fas fa-sliders-h text-xs"></i>
-                        </button>
-                        <button onclick="confirmDeleteUser('${user._id}')" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-all border border-white/5" title="Terminate Access">
-                            <i class="fas fa-trash-alt text-xs"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-
-function filterUsers() {
-    const searchTerm = document.getElementById('userSearchInput').value.toLowerCase();
-    const role = document.getElementById('roleFilter').value;
-    const status = document.getElementById('statusFilter').value;
-
-    const filtered = window.allUsers.filter(u => {
-        const matchesSearch = u.username.toLowerCase().includes(searchTerm) || u.email.toLowerCase().includes(searchTerm);
-        const matchesRole = role === 'all' || u.role === role;
-        const matchesStatus = status === 'all' || (status === 'active' ? u.isActive : !u.isActive);
-        return matchesSearch && matchesRole && matchesStatus;
-    });
-
-    renderUsers(filtered);
-}
-
-async function syncStorage() {
-    const btn = document.getElementById('syncStorageBtn');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-sync-alt animate-spin mr-2"></i> Syncing...';
-    }
-
-    try {
-        const res = await fetch('/api/admin/sync-storage', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
         const data = await res.json();
-        showToast('Storage Sync', data.message, 'brand');
-        loadUsers();
-        loadStats();
-    } catch (err) {
-        console.error(err);
-        showToast('Sync Failed', 'Could not complete deep storage audit', 'error');
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-arrows-rotate mr-2"></i> <span>Sync Storage</span>';
+
+        if (data) {
+            const usersEl = document.getElementById('totalUsersCard');
+            const projectsEl = document.getElementById('totalProjectsCard');
+            const filesEl = document.getElementById('totalFilesCard');
+            const storageEl = document.getElementById('totalStorageCard');
+
+            // Set text if they exist
+            if (usersEl) usersEl.textContent = data.totalUsers || 0;
+            // Note: Projects/Files cards might be missing in some layouts
+            if (projectsEl) projectsEl.textContent = data.totalProjects || 0;
+            if (filesEl) filesEl.textContent = data.totalFiles || 0;
+
+            if (storageEl) {
+                const usedMB = (data.storageUsed / (1024 * 1024)).toFixed(1);
+                storageEl.textContent = `${usedMB} MB`;
+            }
+
+            // Real-time server stats (CPU/RAM)
+            if (data.cpuUsage !== undefined && document.getElementById('cpuLoadCard')) {
+                document.getElementById('cpuLoadCard').textContent = `${data.cpuUsage}%`;
+            }
+            if (data.ramUsage !== undefined && document.getElementById('ramUsageCard')) {
+                document.getElementById('ramUsageCard').textContent = `${data.ramUsage}%`;
+            }
+            if (data.ramDetail && document.getElementById('ramDetailLabel')) {
+                document.getElementById('ramDetailLabel').textContent = data.ramDetail;
+            }
+
+            updateStorageGauge(data.storageUsed || 0, data.storageLimit || 1073741824);
         }
-    }
+    } catch (err) { console.error('Stats error:', err); }
 }
 
-// Global scope for onclick handlers
-window.openEditUserModal = function(id) {
-    const user = window.allUsers.find(u => u._id === id);
-    if (!user) return;
-    
-    currentEditingUser = user;
-    selectedPermittedUsers = [...(user.permissions?.permittedUsers || [])];
-
-    document.getElementById('editUserId').value = user._id;
-    document.getElementById('editUserSubtitle').textContent = `Modifying identity: ${user.username}`;
-    document.getElementById('editUserRole').value = user.role;
-    document.getElementById('editUserActive').checked = user.isActive;
-    document.getElementById('editUserQuota').value = Math.round((user.storageQuota || 0) / (1024 * 1024));
-    
-    // Permissions checkboxes
-    document.getElementById('permView').checked = user.permissions?.canView ?? true;
-    document.getElementById('permUpload').checked = user.permissions?.canUpload ?? true;
-    document.getElementById('permDelete').checked = user.permissions?.canDelete ?? true;
-    document.getElementById('permSeeOthers').checked = user.permissions?.canSeeOthersFiles ?? false;
-    
-    updateStatusLabel();
-    updatePermittedUsersCount();
-
-    const modal = document.getElementById('editUserModal');
-    modal.classList.remove('hidden');
-}
-
-window.closeEditUserModal = function() {
-    document.getElementById('editUserModal').classList.add('hidden');
-    currentEditingUser = null;
-}
-
-window.updateStatusLabel = function() {
-    const isChecked = document.getElementById('editUserActive').checked;
-    const label = document.getElementById('statusToggleLabel');
-    if (label) {
-        label.textContent = isChecked ? 'Active' : 'Disabled';
-        label.className = `text-sm font-bold ${isChecked ? 'text-emerald-500' : 'text-rose-500'}`;
-    }
-}
-
-function updatePermittedUsersCount() {
-    const countEl = document.getElementById('permittedUsersCount');
-    if (countEl) {
-        countEl.textContent = `${selectedPermittedUsers.length} users authorized for monitoring`;
-    }
-}
-
-// Access Management Logic
-window.openAccessManagement = function() {
-    if (!currentEditingUser) return;
-    
-    const subtitle = document.getElementById('accessModalSubtitle');
-    if (subtitle) subtitle.textContent = `Authorizing data access for: ${currentEditingUser.username}`;
-    
-    const list = document.getElementById('accessUserList');
-    if (!list) return;
-
-    // Filter out the current user themselves
-    const candidates = window.allUsers.filter(u => u._id !== currentEditingUser._id);
-    
-    list.innerHTML = candidates.map(user => {
-        const isSelected = selectedPermittedUsers.includes(user._id);
-        return `
-            <div class="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all cursor-pointer group" onclick="togglePermittedUser('${user._id}')">
-                <div class="flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-xs font-black border border-white/5 group-hover:border-tech-blue/30 transition-all">
-                        ${user.username[0].toUpperCase()}
-                    </div>
-                    <div>
-                        <div class="text-sm font-bold text-white">${user.username}</div>
-                        <div class="text-[10px] text-slate-500 uppercase tracking-widest">${user.email}</div>
-                    </div>
-                </div>
-                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'border-tech-blue bg-tech-blue' : 'border-white/10'}">
-                    ${isSelected ? '<i class="fas fa-check text-[10px] text-white"></i>' : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    document.getElementById('accessModal').classList.remove('hidden');
-}
-
-window.togglePermittedUser = function(userId) {
-    const idx = selectedPermittedUsers.indexOf(userId);
-    if (idx > -1) {
-        selectedPermittedUsers.splice(idx, 1);
-    } else {
-        selectedPermittedUsers.push(userId);
-    }
-    openAccessManagement(); // Re-render list
-    updatePermittedUsersCount();
-}
-
-window.closeAccessModal = function() {
-    document.getElementById('accessModal').classList.add('hidden');
-}
-
-document.getElementById('saveAccessBtn')?.addEventListener('click', () => {
-    closeAccessModal();
-});
-
-document.getElementById('saveUserBtn')?.addEventListener('click', async () => {
-    if (!currentEditingUser) return;
-    
-    const id = currentEditingUser._id;
-    const role = document.getElementById('editUserRole').value;
-    const isActive = document.getElementById('editUserActive').checked;
-    const quotaMB = parseInt(document.getElementById('editUserQuota').value);
-    
-    const permissions = {
-        canView: document.getElementById('permView').checked,
-        canUpload: document.getElementById('permUpload').checked,
-        canDelete: document.getElementById('permDelete').checked,
-        canSeeOthersFiles: document.getElementById('permSeeOthers').checked,
-        permittedUsers: selectedPermittedUsers
-    };
-
+async function loadLogs() {
     try {
-        // 1. Update Permissions (includes permittedUsers)
-        await fetch(`/api/admin/users/${id}/permissions`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ permissions })
+        const res = await fetch('/api/admin/logs?todayOnly=true', {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
+        const logs = await res.json();
+        const container = document.getElementById('activityList');
+        if (!container) return;
 
-        // 2. Update Role if changed
-        if (role !== currentEditingUser.role) {
-            await fetch(`/api/admin/users/${id}/role`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ role })
-            });
+        if (!logs || logs.length === 0) {
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-48 text-slate-500 opacity-50">
+                    <i class="fas fa-terminal text-2xl mb-3"></i>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em]">No Activity Logs Today</p>
+                </div>`;
+            return;
         }
 
-        // 3. Update Status if changed
-        if (isActive !== currentEditingUser.isActive) {
-            await fetch(`/api/admin/users/${id}/status`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ isActive })
-            });
-        }
-
-        // 4. Update Quota
-        await updateQuota(id, quotaMB);
-
-        showToast('Success', 'Node reconfigured successfully', 'brand');
-        closeEditUserModal();
-        loadUsers();
-    } catch (err) {
-        console.error(err);
-        showToast('Error', 'Failed to update user intelligence', 'error');
-    }
-});
-
-async function updateQuota(id, mb) {
-    try {
-        const res = await fetch(`/api/admin/users/${id}/quota`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ storageQuota: mb })
-        });
-        if (res.ok) {
-            showToast('Success', 'Quota updated', 'success');
-            loadUsers();
-        }
-    } catch (err) { console.error(err); }
+        container.innerHTML = logs.map(log => {
+            const date = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return `
+                <div class="flex items-start gap-4 p-4 rounded-xl hover:bg-white/5 transition-all animate-fade-in group border border-transparent hover:border-white/5 mb-2">
+                    <div class="w-10 h-10 rounded-lg bg-tech-blue/10 flex items-center justify-center text-tech-blue border border-tech-blue/20 group-hover:scale-110 transition-transform shadow-lg shadow-tech-blue/5">
+                        <i class="fas fa-code-branch text-xs"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[10px] font-black text-slate-100 uppercase tracking-wider truncate">${log.userId?.email || 'System'}</span>
+                            <span class="text-[9px] font-medium text-slate-500 bg-slate-500/10 px-2 py-0.5 rounded-md uppercase tracking-tighter">${date}</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 font-medium leading-relaxed">${log.action}: <span class="text-tech-blue/90 italic font-mono">${log.details}</span></p>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (err) { console.error('Logs error:', err); }
 }
 
-window.confirmDeleteUser = async function(id) {
-    if (!confirm('Are you sure you want to PERMANENTLY delete this user?')) return;
-    
+async function purgeLogs() {
+    if (!confirm('Are you sure you want to purge all activity logs?')) return;
     try {
-        const res = await fetch(`/api/admin/users/${id}`, {
+        const res = await fetch('/api/admin/logs/clear', {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
-            showToast('Success', 'Node terminated', 'success');
-            loadUsers();
+            loadLogs();
+            showToast('System', 'Activity logs purged successfully', 'success');
+        } else {
+            showToast('Error', 'Failed to purge logs', 'error');
         }
     } catch (err) { console.error(err); }
 }
 
-function formatSize(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+function updateStorageGauge(used, limit) {
+    const percent = Math.min((used / limit) * 100, 100).toFixed(1);
+    const bar = document.getElementById('storageBar');
+    const label = document.getElementById('storagePercentLabel');
+    if (label) label.textContent = `${percent}% Capacity`;
+    if (bar) bar.style.width = `${percent}%`;
 }
 
-function showToast(title, message, type = 'brand') {
+function setupEventListeners() {
+    const purgeBtn = document.querySelector('[title="Purge System Logs"]');
+    if (purgeBtn) purgeBtn.onclick = purgeLogs;
+
+    document.getElementById('saveUserBtn')?.addEventListener('click', () => window.saveUserChanges());
+    document.getElementById('saveAccessBtn')?.addEventListener('click', () => {
+        const userId = document.getElementById('editUserId').value;
+        const selectedUsers = Array.from(document.querySelectorAll('input[name="accessUser"]:checked')).map(el => el.value);
+
+        fetch(`/api/admin/users/${userId}/shared-with`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ sharedWith: selectedUsers })
+        }).then(res => {
+            if (res.ok) {
+                showToast('Success', 'Access matrix updated', 'success');
+                closeAccessModal();
+                loadUsers();
+            }
+        }).catch(err => console.error(err));
+    });
+}
+
+function showToast(title, message, type) {
     const toast = document.getElementById('toast');
     if (!toast) return;
-    
-    // Simplistic toast update
-    const head = document.getElementById('toastTitle');
-    const msg = document.getElementById('toastMessage');
-    if (head) head.textContent = title;
-    if (msg) msg.textContent = message;
-
+    document.getElementById('toastTitle').textContent = title;
+    document.getElementById('toastMessage').textContent = message;
     toast.classList.remove('translate-y-20', 'opacity-0');
-    toast.classList.add('translate-y-0', 'opacity-100');
-    
-    setTimeout(() => {
-        toast.classList.remove('translate-y-0', 'opacity-100');
-        toast.classList.add('translate-y-20', 'opacity-0');
-    }, 4000);
+    setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 4000);
 }
 
+// Edit User & Modal Logic
+window.editUser = function (userId) {
+    const user = window.allUsers.find(u => u._id === userId);
+    if (!user) return;
 
+    document.getElementById('editUserId').value = user._id;
+    const subEl = document.getElementById('editUserSubtitle');
+    if (subEl) subEl.textContent = `Modifying: ${user.username}`;
+
+    const roleEl = document.getElementById('editUserRole');
+    if (roleEl) roleEl.value = user.role;
+
+    const activeEl = document.getElementById('editUserActive');
+    if (activeEl) activeEl.checked = user.status !== 'disabled';
+
+    const quotaEl = document.getElementById('editUserQuota');
+    if (quotaEl) quotaEl.value = Math.round((user.storageQuota || 1073741824) / (1024 * 1024));
+
+    // Permissions
+    const perms = user.permissions || {};
+    const pView = document.getElementById('permView');
+    const pUpload = document.getElementById('permUpload');
+    const pDelete = document.getElementById('permDelete');
+    const pSeeOthers = document.getElementById('permSeeOthers');
+
+    if (pView) pView.checked = perms.canView !== false;
+    if (pUpload) pUpload.checked = perms.canUpload !== false;
+    if (pDelete) pDelete.checked = perms.canDelete !== false;
+    if (pSeeOthers) pSeeOthers.checked = perms.canSeeOthers === true;
+
+    updateStatusLabel();
+    const modal = document.getElementById('editUserModal');
+    if (modal) modal.classList.remove('hidden');
+};
+
+window.closeEditUserModal = function () {
+    document.getElementById('editUserModal').classList.add('hidden');
+};
+
+window.updateStatusLabel = function () {
+    const checkbox = document.getElementById('editUserActive');
+    const label = document.getElementById('statusToggleLabel');
+    if (checkbox && label) {
+        label.textContent = checkbox.checked ? 'Active' : 'Disabled';
+        label.className = checkbox.checked ? 'text-sm font-bold text-emerald-500' : 'text-sm font-bold text-rose-500';
+    }
+};
+
+window.saveUserChanges = async function () {
+    const userId = document.getElementById('editUserId').value;
+    const role = document.getElementById('editUserRole').value;
+    const status = document.getElementById('editUserActive').checked ? 'active' : 'disabled';
+    const quotaMB = parseInt(document.getElementById('editUserQuota').value) || 1024;
+
+    const permissions = {
+        canView: document.getElementById('permView').checked,
+        canUpload: document.getElementById('permUpload').checked,
+        canDelete: document.getElementById('permDelete').checked,
+        canSeeOthers: document.getElementById('permSeeOthers').checked
+    };
+
+    try {
+        // Update Role
+        await fetch(`/api/admin/users/${userId}/role`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ role })
+        });
+
+        // Update Status
+        await fetch(`/api/admin/users/${userId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status })
+        });
+
+        // Update Quota
+        await fetch(`/api/admin/users/${userId}/quota`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ quota: quotaMB * 1024 * 1024 })
+        });
+
+        // Update Permissions
+        const res = await fetch(`/api/admin/users/${userId}/permissions`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ permissions })
+        });
+
+        if (res.ok) {
+            showToast('Success', 'User profile updated successfully', 'success');
+            closeEditUserModal();
+            loadUsers();
+        } else {
+            showToast('Error', 'Failed to update permissions', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error', 'System communication failure', 'error');
+    }
+};
+
+window.openAccessManagement = function () {
+    const userId = document.getElementById('editUserId').value;
+    const user = window.allUsers.find(u => u._id === userId);
+    if (!user) return;
+
+    const container = document.getElementById('accessUserList');
+    document.getElementById('accessModalSubtitle').textContent = `Target: ${user.username}`;
+
+    const sharedWithIds = (user.sharedWith || []).map(u => (u._id || u).toString());
+
+    container.innerHTML = window.allUsers
+        .filter(u => u._id !== userId)
+        .map(u => `
+            <div class="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-tech-blue/10 flex items-center justify-center text-tech-blue">
+                        <i class="fas fa-user text-[10px]"></i>
+                    </div>
+                    <span class="text-xs font-bold text-white">${u.username}</span>
+                </div>
+                <input type="checkbox" name="accessUser" value="${u._id}" ${sharedWithIds.includes(u._id) ? 'checked' : ''} class="w-5 h-5 rounded-lg bg-white/5 border-white/10 text-tech-blue focus:ring-tech-blue">
+            </div>
+        `).join('');
+
+    document.getElementById('accessModal').classList.remove('hidden');
+};
+
+window.closeAccessModal = function () {
+    document.getElementById('accessModal').classList.add('hidden');
+};
+
+document.getElementById('saveAccessBtn')?.addEventListener('click', async () => {
+    const userId = document.getElementById('editUserId').value;
+    const selectedUsers = Array.from(document.querySelectorAll('input[name="accessUser"]:checked')).map(el => el.value);
+
+    try {
+        const res = await fetch(`/api/admin/users/${userId}/shared-with`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ sharedWith: selectedUsers })
+        });
+
+        if (res.ok) {
+            showToast('Success', 'Access matrix updated', 'success');
+            closeAccessModal();
+            loadUsers();
+        }
+    } catch (err) { console.error(err); }
+});

@@ -113,6 +113,14 @@ function renderProjectsGrid(projects) {
         const totalPaid = payments.filter(pay => pay.type === 'payment').reduce((acc, pay) => acc + pay.amount, 0);
         const totalExp = payments.filter(pay => pay.type === 'expense').reduce((acc, pay) => acc + pay.amount, 0);
 
+        const priorityColors = {
+            'low': 'bg-slate-500/10 text-slate-500 border-slate-500/20',
+            'medium': 'bg-tech-blue/10 text-tech-blue border-tech-blue/20',
+            'high': 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+        };
+        const priorityClass = priorityColors[p.priority] || priorityColors['medium'];
+        const deadlineDate = p.deadline ? new Date(p.deadline).toLocaleDateString() : 'No Target';
+
         return `
             <div class="tech-card p-8 rounded-[2.5rem] group hover:border-tech-blue/30 transition-all duration-500 cursor-pointer" onclick="openAdminProjectDetail('${p._id}')">
                 <div class="flex justify-between items-start mb-6">
@@ -120,6 +128,12 @@ function renderProjectsGrid(projects) {
                         <div class="flex items-center gap-3">
                             <h3 class="text-xl font-bold text-white group-hover:text-tech-blue transition-colors">${p.name}</h3>
                             <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${p.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-500/10 text-slate-500 border-slate-500/20'}">${p.status}</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${priorityClass}">
+                                <i class="fas fa-flag mr-1"></i>${p.priority}
+                            </span>
+                            <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border bg-white/5 border-white/10 text-slate-400">
+                                <i class="fas fa-calendar-alt mr-1"></i>${deadlineDate}
+                            </span>
                         </div>
                         <p class="text-xs text-slate-500 mt-2 line-clamp-2">${p.description || 'No objectives defined.'}</p>
                     </div>
@@ -128,7 +142,7 @@ function renderProjectsGrid(projects) {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-4 py-4 border-y border-white/5 mb-6">
+                <div class="grid grid-cols-4 gap-4 py-4 border-y border-white/5 mb-6">
                     <div>
                         <span class="text-[8px] font-black uppercase text-slate-600 tracking-tighter">Finance</span>
                         <div class="text-sm font-bold text-emerald-400">+$${totalPaid}</div>
@@ -138,8 +152,12 @@ function renderProjectsGrid(projects) {
                         <div class="text-sm font-bold text-rose-400">-$${totalExp}</div>
                     </div>
                     <div>
-                        <span class="text-[8px] font-black uppercase text-slate-600 tracking-tighter">Notes</span>
-                        <div class="text-sm font-bold text-slate-300">${notes.length}</div>
+                        <span class="text-[8px] font-black uppercase text-slate-600 tracking-tighter">Budget</span>
+                        <div class="text-sm font-bold text-indigo-400">$${p.budget || 0}</div>
+                    </div>
+                    <div>
+                        <span class="text-[8px] font-black uppercase text-slate-600 tracking-tighter">Docs & Intel</span>
+                        <div class="text-sm font-bold text-slate-300">${notes.length} Units</div>
                     </div>
                 </div>
 
@@ -286,7 +304,7 @@ async function openAdminProjectDetail(projectId) {
                                                 </div>
                                             </div>
                                         `).join('')
-                                    }
+            }
                                 </div>
                             </div>
 
@@ -300,14 +318,14 @@ async function openAdminProjectDetail(projectId) {
                                 </div>
                                 <div class="space-y-3 flex-1 max-h-60 overflow-y-auto custom-scrollbar pr-2 relative z-10">
                                     ${tasks.length === 0 ? '<div class="h-full min-h-[150px] flex flex-col items-center justify-center text-slate-600 space-y-3 opacity-50"><i class="fas fa-clipboard-list text-3xl"></i><p class="text-[10px] font-black uppercase tracking-widest">No Objectives Set</p></div>' :
-                        tasks.map(t => {
-                            const statusColors = {
-                                'done': 'bg-emerald-500 border-emerald-500/30 text-emerald-500',
-                                'todo': 'bg-slate-600 border-slate-600/30 text-slate-400',
-                                'in-progress': 'bg-tech-blue border-tech-blue/30 text-tech-blue'
-                            };
-                            const colorClass = statusColors[t.status] || statusColors['todo'];
-                            return `
+                tasks.map(t => {
+                    const statusColors = {
+                        'done': 'bg-emerald-500 border-emerald-500/30 text-emerald-500',
+                        'todo': 'bg-slate-600 border-slate-600/30 text-slate-400',
+                        'in-progress': 'bg-tech-blue border-tech-blue/30 text-tech-blue'
+                    };
+                    const colorClass = statusColors[t.status] || statusColors['todo'];
+                    return `
                                             <div class="p-3.5 bg-slate-900/50 rounded-2xl border border-white/5 flex justify-between items-center hover:bg-white/5 transition-colors">
                                                 <div class="flex items-center gap-4">
                                                     <div class="w-3 h-3 rounded-full ${colorClass.split(' ')[0]} shadow-[0_0_8px_currentColor] opacity-80 ${t.status === 'in-progress' ? 'animate-pulse' : ''}"></div>
@@ -316,8 +334,8 @@ async function openAdminProjectDetail(projectId) {
                                                 <div class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded bg-slate-950 border border-white/5 ${colorClass.split(' ')[2]}">${t.status}</div>
                                             </div>
                                         `;
-                        }).join('')
-                    }
+                }).join('')
+            }
                                 </div>
                             </div>
                         </div>
@@ -335,7 +353,7 @@ async function openAdminProjectDetail(projectId) {
                             </div>
                             <div id="notesList" class="space-y-4 max-h-60 overflow-y-auto custom-scrollbar pr-2 relative z-10">
                                 ${(project.notes || []).length === 0 ? '<div class="p-8 flex flex-col items-center justify-center text-slate-600 space-y-3 opacity-50 border border-dashed border-white/10 rounded-2xl"><i class="fas fa-comment-slash text-3xl"></i><p class="text-[10px] font-black uppercase tracking-widest">No Intelligence Logs</p></div>' :
-                        (project.notes || []).slice().reverse().map(note => `
+                (project.notes || []).slice().reverse().map(note => `
                                         <div class="p-5 rounded-2xl bg-slate-900/50 border border-white/5 hover:border-white/10 transition-colors">
                                             <p class="text-sm text-slate-300 leading-relaxed mb-4 whitespace-pre-wrap font-medium">${note.text}</p>
                                             <div class="flex justify-between items-center pt-3 border-t border-white/5">
@@ -349,7 +367,7 @@ async function openAdminProjectDetail(projectId) {
                                             </div>
                                         </div>
                                     `).join('')
-                    }
+            }
                             </div>
                         </div>
 

@@ -59,8 +59,10 @@ app.use('/api/projects', projectRoutes);
 // Serve pages
 app.get('/login', (req, res) => res.render('login'));
 app.get('/register', (req, res) => res.render('register'));
-app.get('/admin', (req, res) => res.render('admin'));
+app.get('/admin', (req, res) => res.render('admin-dashboard'));
+app.get('/admin/users', (req, res) => res.render('users'));
 app.get('/admin/projects', (req, res) => res.render('admin-projects'));
+app.get('/admin/create-project', (req, res) => res.render('admin-create-project'));
 app.get('/files', (req, res) => res.render('index'));
 app.get('/projects', (req, res) => res.render('projects'));
 

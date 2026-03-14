@@ -8,7 +8,65 @@ class App {
     this.currentViewMode = 'grid'; // 'grid' | 'list'
     this.selectedItems = new Set();
     this.clipboard = { items: [], type: null }; // { items: string[], type: 'copy' | 'move' }
+
+    // Expose handlers for global access (sidebar buttons)
+    window.appHandlers = {
+      uploadTrigger: () => document.getElementById("fileInput")?.click(),
+      createFolder: () => this.handleNewFolder(),
+      createFile: () => this.handleNewFile(),
+      switchUserContext: (email) => this.handleSwitchUserContext(email)
+    };
+
+    this.handlers = window.appHandlers;
+
     this.init();
+  }
+
+  async handleSwitchUserContext(email) {
+    if (!email) return;
+    console.log('Switching context to user:', email);
+    try {
+      // Logic to change current view to targeted user's root
+      // This might involve resetting state and loading user-specific file data
+      // For now, let's assume we fetch files/folders specifically for this email
+      this.fileManager.targetUserEmail = email; // Store target email in fileManager if supported
+      this.currentFolderId = null; // Go to root of that user
+      await this.loadData();
+      this.showToast("Context Switched", `Viewing ${email}'s directory`, "success");
+    } catch (err) {
+      console.error('Failed to switch user context:', err);
+      this.showToast("Switch Failed", "Could not load user data", "error");
+    }
+  }
+
+  async handleNewFolder() {
+    const name = prompt('Folder name?');
+    if (!name) return;
+    try {
+      const res = await this.fileManager.fetchApi('/api/folders', {
+        method: 'POST',
+        body: JSON.stringify({ name, parentId: this.currentFolderId })
+      });
+      if (res.ok) {
+        await this.loadData();
+        this.showToast("Folder Created", `"${name}" is ready`, "success");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        this.showToast("Creation Failed", err.message || "Could not create folder", "error");
+      }
+    } catch (err) { console.error(err); }
+  }
+
+  async handleNewFile() {
+    const name = prompt('File name? (e.g. note.md)');
+    if (!name) return;
+    try {
+      await this.fileManager.createFile(name, this.currentFolderId);
+      await this.loadData();
+      this.showToast("File Created", `"${name}" is ready`, "success");
+    } catch (error) {
+      this.showToast("Creation Failed", error.message, "error");
+    }
   }
 
   async init() {
@@ -46,8 +104,8 @@ class App {
       if (uploadBtn) uploadBtn.style.display = 'flex';
       const navDashboard = document.getElementById('navDashboard');
       if (navDashboard) {
-          navDashboard.classList.toggle('hidden', this.fileManager.user.role !== 'admin');
-          navDashboard.classList.toggle('flex', this.fileManager.user.role === 'admin');
+        navDashboard.classList.toggle('hidden', this.fileManager.user.role !== 'admin');
+        navDashboard.classList.toggle('flex', this.fileManager.user.role === 'admin');
       }
 
       // Handle active state client-side
@@ -96,8 +154,14 @@ class App {
   }
 
   async loadFolders() {
+    console.log("Loading folders...");
     const res = await this.fileManager.fetchApi('/api/folders');
-    this.fileManager.folders = await res.json();
+    if (res.ok) {
+      this.fileManager.folders = await res.json();
+      console.log("Folders loaded:", this.fileManager.folders.length);
+    } else {
+      console.error("Failed to load folders");
+    }
   }
 
   attachEventListeners() {
@@ -110,40 +174,13 @@ class App {
     // New Folder
     const newFolderBtn = document.getElementById('newFolderBtn');
     if (newFolderBtn) {
-      newFolderBtn.addEventListener('click', async () => {
-        const name = prompt('Folder name?');
-        if (name) {
-          const res = await this.fileManager.fetchApi('/api/folders', {
-            method: 'POST',
-            body: JSON.stringify({ name, parentId: this.currentFolderId })
-          });
-
-          if (res.ok) {
-            this.loadData();
-            this.showToast("Folder Created", `"${name}" is ready`, "success");
-          } else {
-            const err = await res.json().catch(() => ({}));
-            this.showToast("Creation Failed", err.message || "Could not create folder", "error");
-          }
-        }
-      });
+      newFolderBtn.addEventListener('click', () => this.handleNewFolder());
     }
-    
+
     // New File
     const newFileBtn = document.getElementById('newFileBtn');
     if (newFileBtn) {
-      newFileBtn.addEventListener('click', async () => {
-        const name = prompt('File name? (e.g. todo.txt or note.md)');
-        if (name) {
-          try {
-            await this.fileManager.createFile(name, this.currentFolderId);
-            this.loadData();
-            this.showToast("File Created", `"${name}" is ready`, "success");
-          } catch (error) {
-            this.showToast("Creation Failed", error.message, "error");
-          }
-        }
-      });
+      newFileBtn.addEventListener('click', () => this.handleNewFile());
     }
 
     // Filter Listeners
@@ -164,24 +201,24 @@ class App {
     const gridViewBtn = document.getElementById('gridViewBtn');
     const listViewBtn = document.getElementById('listViewBtn');
     if (gridViewBtn) {
-        gridViewBtn.addEventListener('click', () => {
-            this.currentViewMode = 'grid';
-            gridViewBtn.classList.add('bg-white/10', 'text-white');
-            gridViewBtn.classList.remove('text-slate-400');
-            listViewBtn.classList.remove('bg-white/10', 'text-white');
-            listViewBtn.classList.add('text-slate-400');
-            this.renderFiles();
-        });
+      gridViewBtn.addEventListener('click', () => {
+        this.currentViewMode = 'grid';
+        gridViewBtn.classList.add('bg-white/10', 'text-white');
+        gridViewBtn.classList.remove('text-slate-400');
+        listViewBtn.classList.remove('bg-white/10', 'text-white');
+        listViewBtn.classList.add('text-slate-400');
+        this.renderFiles();
+      });
     }
     if (listViewBtn) {
-        listViewBtn.addEventListener('click', () => {
-            this.currentViewMode = 'list';
-            listViewBtn.classList.add('bg-white/10', 'text-white');
-            listViewBtn.classList.remove('text-slate-400');
-            gridViewBtn.classList.remove('bg-white/10', 'text-white');
-            gridViewBtn.classList.add('text-slate-400');
-            this.renderFiles();
-        });
+      listViewBtn.addEventListener('click', () => {
+        this.currentViewMode = 'list';
+        listViewBtn.classList.add('bg-white/10', 'text-white');
+        listViewBtn.classList.remove('text-slate-400');
+        gridViewBtn.classList.remove('bg-white/10', 'text-white');
+        gridViewBtn.classList.add('text-slate-400');
+        this.renderFiles();
+      });
     }
 
     // Bulk Actions
@@ -206,38 +243,66 @@ class App {
     const sidebar = document.getElementById('sidebar');
 
     const toggleSidebar = (show) => {
-        if (show) {
-            sidebar.classList.remove('-translate-x-full');
-            sidebarOverlay.classList.remove('hidden');
-            setTimeout(() => sidebarOverlay.classList.remove('opacity-0'), 10);
-            document.body.classList.add('overflow-hidden');
-        } else {
-            sidebar.classList.add('-translate-x-full');
-            sidebarOverlay.classList.add('opacity-0');
-            setTimeout(() => sidebarOverlay.classList.add('hidden'), 300);
-            document.body.classList.remove('overflow-hidden');
-        }
+      if (!sidebar) return;
+      if (show) {
+        sidebar.classList.remove('-translate-x-full');
+        sidebarOverlay.classList.remove('hidden');
+        setTimeout(() => sidebarOverlay.classList.remove('opacity-0'), 10);
+        document.body.classList.add('overflow-hidden');
+      } else {
+        sidebar.classList.add('-translate-x-full');
+        sidebarOverlay.classList.add('opacity-0');
+        setTimeout(() => sidebarOverlay.classList.add('hidden'), 300);
+        document.body.classList.remove('overflow-hidden');
+      }
+    };
+
+    // Right Sidebar Toggle (File Explorer)
+    const rightSidebar = document.getElementById('rightSidebar');
+    const rightSidebarOverlay = document.getElementById('rightSidebarOverlay');
+    const closeRightMenuBtn = document.getElementById('closeRightMenuBtn');
+    const openRightMenuBtn = document.getElementById('openRightMenuBtn');
+
+    const toggleRightSidebar = (show) => {
+      console.log('Toggling Right Sidebar:', show, !!rightSidebar);
+      if (!rightSidebar) return;
+      if (show) {
+        rightSidebar.classList.remove('translate-x-full');
+        rightSidebarOverlay.classList.remove('hidden');
+        setTimeout(() => rightSidebarOverlay.classList.remove('opacity-0'), 10);
+        document.body.classList.add('overflow-hidden');
+      } else {
+        rightSidebar.classList.add('translate-x-full');
+        rightSidebarOverlay.classList.add('opacity-0');
+        setTimeout(() => rightSidebarOverlay.classList.add('hidden'), 300);
+        document.body.classList.remove('overflow-hidden');
+      }
     };
 
     if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', () => toggleSidebar(true));
     if (closeMenuBtn) closeMenuBtn.addEventListener('click', () => toggleSidebar(false));
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
 
+    if (closeRightMenuBtn) closeRightMenuBtn.addEventListener('click', () => toggleRightSidebar(false));
+    if (rightSidebarOverlay) rightSidebarOverlay.addEventListener('click', () => toggleRightSidebar(false));
+    if (openRightMenuBtn) openRightMenuBtn.addEventListener('click', () => toggleRightSidebar(true));
+
     // Close sidebar on folder navigation if on mobile
     this.sidebarToggle = toggleSidebar;
+    this.rightSidebarToggle = toggleRightSidebar;
 
     // Go Up Button
     const goUpBtn = document.getElementById('goUpBtn');
     if (goUpBtn) {
-        goUpBtn.addEventListener('click', () => {
-            if (!this.currentFolderId) return;
-            const currentFolder = this.fileManager.folders.find(f => f._id === this.currentFolderId);
-            if (currentFolder) {
-                this.currentFolderId = currentFolder.parentId || null;
-                this.renderFiles();
-                this.renderFolderTree();
-            }
-        });
+      goUpBtn.addEventListener('click', () => {
+        if (!this.currentFolderId) return;
+        const currentFolder = this.fileManager.folders.find(f => f._id === this.currentFolderId);
+        if (currentFolder) {
+          this.currentFolderId = currentFolder.parentId || null;
+          this.renderFiles();
+          this.renderFolderTree();
+        }
+      });
     }
 
     // Storage Dashboard Modal
@@ -247,12 +312,12 @@ class App {
     const storageOverlay = document.getElementById('storageModalOverlay');
 
     const toggleStorageModal = (show) => {
-        if (show) {
-            storageModal.classList.remove('hidden');
-            this.updateStats(); // Refresh stats before showing
-        } else {
-            storageModal.classList.add('hidden');
-        }
+      if (show) {
+        storageModal.classList.remove('hidden');
+        this.updateStats(); // Refresh stats before showing
+      } else {
+        storageModal.classList.add('hidden');
+      }
     };
 
     if (storageBtn) storageBtn.addEventListener('click', () => toggleStorageModal(true));
@@ -261,37 +326,37 @@ class App {
 
     // Clipboard Keyboard Shortcuts
     document.addEventListener('keydown', (e) => {
-        // Skip if user is typing in an input/textarea
-        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      // Skip if user is typing in an input/textarea
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
 
-        if (e.ctrlKey || e.metaKey) {
-            switch (e.key.toLowerCase()) {
-                case 'c':
-                    if (this.selectedItems.size > 0) {
-                        e.preventDefault();
-                        this.handleClipboardAction('copy');
-                    }
-                    break;
-                case 'x':
-                    if (this.selectedItems.size > 0) {
-                        e.preventDefault();
-                        this.handleClipboardAction('move');
-                    }
-                    break;
-                case 'v':
-                    e.preventDefault();
-                    this.handlePaste();
-                    break;
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key.toLowerCase()) {
+          case 'c':
+            if (this.selectedItems.size > 0) {
+              e.preventDefault();
+              this.handleClipboardAction('copy');
             }
+            break;
+          case 'x':
+            if (this.selectedItems.size > 0) {
+              e.preventDefault();
+              this.handleClipboardAction('move');
+            }
+            break;
+          case 'v':
+            e.preventDefault();
+            this.handlePaste();
+            break;
         }
+      }
     });
   }
 
   handleClipboardAction(type) {
     if (this.selectedItems.size === 0) return;
     this.clipboard = {
-        items: Array.from(this.selectedItems),
-        type: type
+      items: Array.from(this.selectedItems),
+      type: type
     };
     const count = this.clipboard.items.length;
     const msg = type === 'copy' ? `Copied ${count} items` : `Cut ${count} items`;
@@ -301,30 +366,30 @@ class App {
 
   async handlePaste() {
     if (!this.clipboard.items.length) {
-        this.showToast("Clipboard Empty", "Copy or cut items first", "info");
-        return;
+      this.showToast("Clipboard Empty", "Copy or cut items first", "info");
+      return;
     }
 
     const { items, type } = this.clipboard;
     const targetFolderId = this.currentFolderId;
 
     try {
-        this.showToast(type === 'copy' ? "Copying..." : "Moving...", `Syncing ${items.length} items to current directory`, "brand");
-        
-        if (type === 'copy') {
-            await this.fileManager.copyFiles(items, targetFolderId);
-        } else {
-            await this.fileManager.moveFiles(items, targetFolderId);
-            // Clear clipboard after move as items might no longer exist at source
-            this.clipboard = { items: [], type: null };
-        }
+      this.showToast(type === 'copy' ? "Copying..." : "Moving...", `Syncing ${items.length} items to current directory`, "brand");
 
-        this.selectedItems.clear();
-        await this.loadData();
-        this.showToast("Success", `Finished processing ${items.length} items`, "success");
-        this.updateBulkActionBar(); // Refresh bar state
+      if (type === 'copy') {
+        await this.fileManager.copyFiles(items, targetFolderId);
+      } else {
+        await this.fileManager.moveFiles(items, targetFolderId);
+        // Clear clipboard after move as items might no longer exist at source
+        this.clipboard = { items: [], type: null };
+      }
+
+      this.selectedItems.clear();
+      await this.loadData();
+      this.showToast("Success", `Finished processing ${items.length} items`, "success");
+      this.updateBulkActionBar(); // Refresh bar state
     } catch (error) {
-        this.showToast("Paste Failed", error.message, "error");
+      this.showToast("Paste Failed", error.message, "error");
     }
   }
 
@@ -411,14 +476,14 @@ class App {
     if (emptyState) emptyState.classList.add('hidden');
 
     if (this.currentViewMode === 'grid') {
-        container.className = "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4";
-        container.innerHTML = [
-            ...folders.map(folder => this.createFolderGridItem(folder)),
-            ...files.map(file => this.createFileItem(file))
-        ].join("");
+      container.className = "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4";
+      container.innerHTML = [
+        ...folders.map(folder => this.createFolderGridItem(folder)),
+        ...files.map(file => this.createFileItem(file))
+      ].join("");
     } else {
-        container.className = "flex flex-col gap-2";
-        container.innerHTML = `
+      container.className = "flex flex-col gap-2";
+      container.innerHTML = `
             <div class="flex items-center px-4 py-2 border-b border-white/5 text-[10px] font-bold uppercase tracking-widest text-slate-500">
                 <div class="w-10"></div>
                 <div class="flex-1">Name</div>
@@ -475,7 +540,7 @@ class App {
   createFolderGridItem(folder) {
     const isSelected = this.selectedItems.has(folder._id);
     const displayName = (this.fileManager.user.role === 'admin' && !folder.parentId && folder.createdBy?.email) ? folder.createdBy.email : folder.name;
-    
+
     return `
       <div class="tech-card p-5 rounded-3xl transition-all duration-500 animate-fade-in group cursor-pointer folder-grid-item ${isSelected ? 'ring-2 ring-tech-blue bg-tech-blue/5' : 'hover:scale-[1.02] shadow-xl'}" data-id="${folder._id}">
         <div class="flex items-start justify-between mb-6">
@@ -530,41 +595,64 @@ class App {
   }
 
   renderFolderTree() {
-    const container = document.getElementById('folderTree');
-    if (!container) return;
+    console.log("Rendering Folder Tree...");
+    const containers = [
+      document.getElementById('folderTree'),
+      document.getElementById('sidebarFolderTree')
+    ];
 
-    const folders = this.fileManager.folders;
+    containers.forEach(container => {
+      if (!container) {
+        console.log("Container not found");
+        return;
+      }
+      console.log("Rendering tree into container:", container.id);
 
-    const buildTree = (parentId = null, level = 0) => {
-      const userId = this.fileManager.user ? (this.fileManager.user._id || this.fileManager.user.id) : null;
-      
-      const branchFolders = folders.filter(f => {
-          const fParentId = f.parentId ? f.parentId.toString() : null;
+      const folders = this.fileManager.folders;
+      console.log("Available folders to build tree:", folders.length);
+
+      const buildTree = (parentId = null, level = 0) => {
+        const userId = this.fileManager.user ? (this.fileManager.user._id || this.fileManager.user.id) : null;
+
+        const branchFolders = folders.filter(f => {
+          const fParentId = f.parentId ? (f.parentId._id || f.parentId).toString() : null;
+          const pId = parentId ? parentId.toString() : null;
+
           if (parentId === null) {
-              if (this.fileManager.user.role === 'admin') return fParentId === null;
-              const isSharedWithMe = f.sharedWith && f.sharedWith.some(id => (id._id || id || id.toString()) === userId);
-              const isOwnedAtRoot = fParentId === null && (f.createdBy?._id || f.createdBy || '').toString() === userId;
-              return isOwnedAtRoot || isSharedWithMe;
+            if (this.fileManager.user.role === 'admin') return fParentId === null;
+            const isSharedWithMe = f.sharedWith && f.sharedWith.some(id => (id._id || id || id.toString()) === userId);
+            const isOwnedAtRoot = fParentId === null && (f.createdBy?._id || f.createdBy || '').toString() === userId;
+            return isOwnedAtRoot || isSharedWithMe;
           }
-          return fParentId === parentId;
-      });
-      const branchFiles = this.fileManager.files.filter(f => {
-        const fId = f.folderId ? f.folderId.toString() : null;
-        const pId = parentId ? parentId.toString() : null;
-        return fId === pId;
-      });
+          return fParentId === pId;
+        });
 
-      if (branchFolders.length === 0 && branchFiles.length === 0) return '';
+        const branchFiles = this.fileManager.files.filter(f => {
+          const fId = f.folderId ? (f.folderId._id || f.folderId).toString() : null;
+          const pId = parentId ? parentId.toString() : null;
+          return fId === pId;
+        });
 
-      return `
-        <div class="space-y-1 ${level > 0 ? 'ml-6' : ''}">
-          ${branchFolders.map(f => {
-        const isExpanded = this.expandedFolders.has(f._id);
-        const subfolders = folders.filter(sub => (sub.parentId && sub.parentId.toString() === f._id.toString()));
-        const subfiles = this.fileManager.files.filter(sub => (sub.folderId && sub.folderId.toString() === f._id.toString()));
-        const hasChildren = subfolders.length > 0 || subfiles.length > 0;
+        if (branchFolders.length === 0 && branchFiles.length === 0) {
+          console.log(`No folders or files for parentId: ${parentId}`);
+          return '';
+        }
 
         return `
+        <div class="space-y-1 ${level > 0 ? 'ml-6' : ''}">
+          ${branchFolders.map(f => {
+          const isExpanded = this.expandedFolders.has(f._id);
+          const subfolders = folders.filter(sub => {
+            const subParentId = sub.parentId ? (sub.parentId._id || sub.parentId).toString() : null;
+            return subParentId === f._id.toString();
+          });
+          const subfiles = this.fileManager.files.filter(sub => {
+            const subFolderId = sub.folderId ? (sub.folderId._id || sub.folderId).toString() : null;
+            return subFolderId === f._id.toString();
+          });
+          const hasChildren = subfolders.length > 0 || subfiles.length > 0;
+
+          return `
             <div class="relative">
                 <button class="folder-item w-full flex items-center py-2 px-2 rounded-lg transition-all text-sm ${this.currentFolderId === f._id ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'}" data-id="${f._id}">
                     <div class="w-5 flex items-center justify-center mr-1">
@@ -591,56 +679,59 @@ class App {
           `).join('')}
         </div>
       `;
-    };
+      };
 
-    container.innerHTML = `
-      <div class="relative mb-2">
-          <button class="folder-item w-full flex items-center py-2 px-2 rounded-lg transition-all text-sm ${!this.currentFolderId ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'}" data-id="null">
-            <div class="w-5 mr-1"></div>
-            <i class="fas ${this.fileManager.user.role === 'admin' ? 'fa-users-gear' : 'fa-house'} text-slate-500 mr-2"></i> 
-            <span class="truncate flex-1 text-left">${this.fileManager.user.role === 'admin' ? 'User Directories' : 'Root'}</span>
-          </button>
-      </div>
-      ${buildTree(null, 0)}
-    `;
+      const treeHtml = `
+        <div class="relative mb-2 px-1">
+            <button class="folder-item w-full flex items-center py-2 px-2 rounded-lg transition-all text-sm ${!this.currentFolderId ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'}" data-id="null">
+              <div class="w-5 mr-1"></div>
+              <i class="fas ${this.fileManager.user.role === 'admin' ? 'fa-users-gear' : 'fa-house'} text-slate-500 mr-2"></i> 
+              <span class="truncate flex-1 text-left">${this.fileManager.user.role === 'admin' ? 'User Directories' : 'Root'}</span>
+            </button>
+        </div>
+        ${buildTree(null, 0)}
+      `;
 
-    container.querySelectorAll('.folder-item').forEach(el => {
-      el.addEventListener('click', (e) => {
-        const id = el.getAttribute('data-id');
-        this.currentFolderId = id === 'null' ? null : id;
+      container.innerHTML = treeHtml;
 
-        // Auto-expand when clicking the folder itself if it has subfolders
-        if (id !== 'null' && !this.expandedFolders.has(id)) {
-          this.expandedFolders.add(id);
-        }
+      container.querySelectorAll('.folder-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+          const id = el.getAttribute('data-id');
+          this.currentFolderId = id === 'null' ? null : id;
 
-        this.renderFiles();
-        this.renderFolderTree();
+          // Auto-expand when clicking the folder itself if it has subfolders
+          if (id !== 'null' && !this.expandedFolders.has(id)) {
+            this.expandedFolders.add(id);
+          }
+
+          this.renderFiles();
+          this.renderFolderTree();
+        });
       });
-    });
 
-    container.querySelectorAll('.toggle-btn').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = el.getAttribute('data-id');
-        if (this.expandedFolders.has(id)) {
-          this.expandedFolders.delete(id);
-        } else {
-          this.expandedFolders.add(id);
-        }
-        this.renderFolderTree();
+      container.querySelectorAll('.toggle-btn').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = el.getAttribute('data-id');
+          if (this.expandedFolders.has(id)) {
+            this.expandedFolders.delete(id);
+          } else {
+            this.expandedFolders.add(id);
+          }
+          this.renderFolderTree();
+        });
       });
-    });
 
-    container.querySelectorAll('.sidebar-file-item').forEach(el => {
-      el.addEventListener('click', (e) => {
-        const id = el.getAttribute('data-id');
-        const file = this.fileManager.files.find(f => f._id === id);
-        if (file) {
-          const modal = document.getElementById('fileViewerModal');
-          if (modal) modal.classList.remove('hidden');
-          this.fileViewer.showFile(file);
-        }
+      container.querySelectorAll('.sidebar-file-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+          const id = el.getAttribute('data-id');
+          const file = this.fileManager.files.find(f => f._id === id);
+          if (file) {
+            const modal = document.getElementById('fileViewerModal');
+            if (modal) modal.classList.remove('hidden');
+            this.fileViewer.showFile(file);
+          }
+        });
       });
     });
   }
@@ -648,9 +739,9 @@ class App {
   createFileItem(file, isListView = false) {
     const isPdf = file.type === 'pdf';
     const isSelected = this.selectedItems.has(file._id);
-    
+
     if (isListView) {
-        return `
+      return `
           <div class="glass glass-hover px-5 py-4 rounded-2xl transition-all animate-fade-in group flex items-center gap-4 cursor-pointer ${isSelected ? 'bg-tech-blue/5 border-tech-blue/30' : ''}">
             <input type="checkbox" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-tech-blue focus:ring-tech-blue item-checkbox" data-id="${file._id}" ${isSelected ? 'checked' : ''}>
             <div class="w-12 h-12 rounded-xl flex items-center justify-center ${isPdf ? 'bg-rose-500/10 text-rose-400' : 'bg-tech-blue/10 text-tech-blue'} border border-white/5 shadow-inner">
@@ -722,7 +813,7 @@ class App {
       item.addEventListener('click', (e) => {
         const now = Date.now();
         const IDLE_TIME = 300; // ms
-        
+
         // Check if it's a double tap (useful for mobile) or native double click
         if (now - lastTap < IDLE_TIME || e.detail === 2) {
           this.currentFolderId = item.getAttribute('data-id');
@@ -731,10 +822,10 @@ class App {
         }
         lastTap = now;
       });
-      
+
       // Keep ondblclick for desktop consistency just in case, though the click handler above handles it via e.detail
       item.ondblclick = (e) => {
-          e.preventDefault(); // Handled by click listener
+        e.preventDefault(); // Handled by click listener
       };
     });
 
@@ -793,25 +884,25 @@ class App {
 
     // Checkboxes
     document.querySelectorAll('.item-checkbox').forEach(cb => {
-        cb.onclick = (e) => {
-            e.stopPropagation();
-            const id = cb.getAttribute('data-id');
-            if (cb.checked) {
-                this.selectedItems.add(id);
-            } else {
-                this.selectedItems.delete(id);
-            }
-            this.updateBulkActionBar();
-            // Optional: visually highlight the item immediately
-            const item = cb.closest('.glass');
-            if (this.currentViewMode === 'grid') {
-                if (cb.checked) item.classList.add('ring-2', 'ring-tech-blue');
-                else item.classList.remove('ring-2', 'ring-tech-blue');
-            } else {
-                if (cb.checked) item.classList.add('bg-tech-blue/5', 'border-tech-blue/30');
-                else item.classList.remove('bg-tech-blue/5', 'border-tech-blue/30');
-            }
-        };
+      cb.onclick = (e) => {
+        e.stopPropagation();
+        const id = cb.getAttribute('data-id');
+        if (cb.checked) {
+          this.selectedItems.add(id);
+        } else {
+          this.selectedItems.delete(id);
+        }
+        this.updateBulkActionBar();
+        // Optional: visually highlight the item immediately
+        const item = cb.closest('.glass');
+        if (this.currentViewMode === 'grid') {
+          if (cb.checked) item.classList.add('ring-2', 'ring-tech-blue');
+          else item.classList.remove('ring-2', 'ring-tech-blue');
+        } else {
+          if (cb.checked) item.classList.add('bg-tech-blue/5', 'border-tech-blue/30');
+          else item.classList.remove('bg-tech-blue/5', 'border-tech-blue/30');
+        }
+      };
     });
   }
 
@@ -829,51 +920,51 @@ class App {
 
     const count = this.selectedItems.size;
     const hasClipboard = this.clipboard.items.length > 0;
-    
+
     countEl.textContent = count;
 
     // Show bar if something is selected OR something is in clipboard
     if (count > 0 || hasClipboard) {
-        bar.classList.remove('translate-y-32', 'opacity-0', 'pointer-events-none');
-        bar.classList.add('translate-y-0', 'opacity-100');
-        
-        // Contextual buttons
-        if (moveBtn) moveBtn.classList.toggle('hidden', count === 0);
-        if (copyBtn) copyBtn.classList.toggle('hidden', count === 0);
-        if (deleteBtn) deleteBtn.classList.toggle('hidden', count === 0);
-        if (downloadBtn) downloadBtn.classList.toggle('hidden', count === 0);
-        if (countSection) countSection.classList.toggle('hidden', count === 0);
-        
-        if (pasteBtn) {
-            pasteBtn.classList.toggle('hidden', !hasClipboard);
-            if (hasClipboard) {
-                pasteBtn.querySelector('span').textContent = `Paste (${this.clipboard.items.length})`;
-            }
-        }
+      bar.classList.remove('translate-y-32', 'opacity-0', 'pointer-events-none');
+      bar.classList.add('translate-y-0', 'opacity-100');
 
-        const shareBtn = document.getElementById('bulkShareBtn');
-        if (shareBtn) {
-            const isAdmin = this.fileManager.user && this.fileManager.user.role === 'admin';
-            shareBtn.classList.toggle('hidden', count === 0 || !isAdmin);
-            shareBtn.classList.toggle('flex', count > 0 && isAdmin);
+      // Contextual buttons
+      if (moveBtn) moveBtn.classList.toggle('hidden', count === 0);
+      if (copyBtn) copyBtn.classList.toggle('hidden', count === 0);
+      if (deleteBtn) deleteBtn.classList.toggle('hidden', count === 0);
+      if (downloadBtn) downloadBtn.classList.toggle('hidden', count === 0);
+      if (countSection) countSection.classList.toggle('hidden', count === 0);
+
+      if (pasteBtn) {
+        pasteBtn.classList.toggle('hidden', !hasClipboard);
+        if (hasClipboard) {
+          pasteBtn.querySelector('span').textContent = `Paste (${this.clipboard.items.length})`;
         }
+      }
+
+      const shareBtn = document.getElementById('bulkShareBtn');
+      if (shareBtn) {
+        const isAdmin = this.fileManager.user && this.fileManager.user.role === 'admin';
+        shareBtn.classList.toggle('hidden', count === 0 || !isAdmin);
+        shareBtn.classList.toggle('flex', count > 0 && isAdmin);
+      }
     } else {
-        bar.classList.add('translate-y-32', 'opacity-0', 'pointer-events-none');
-        bar.classList.remove('translate-y-0', 'opacity-100');
+      bar.classList.add('translate-y-32', 'opacity-0', 'pointer-events-none');
+      bar.classList.remove('translate-y-0', 'opacity-100');
     }
   }
 
   async handleBulkDelete() {
     if (this.selectedItems.size === 0) return;
     if (confirm(`Delete ${this.selectedItems.size} items permanently?`)) {
-        try {
-            const result = await this.fileManager.bulkDelete(Array.from(this.selectedItems));
-            this.selectedItems.clear();
-            await this.loadData();
-            this.showToast("Bulk Delete", result.message || "Items removed successfully", "success");
-        } catch (error) {
-            this.showToast("Bulk Delete Failed", error.message, "error");
-        }
+      try {
+        const result = await this.fileManager.bulkDelete(Array.from(this.selectedItems));
+        this.selectedItems.clear();
+        await this.loadData();
+        this.showToast("Bulk Delete", result.message || "Items removed successfully", "success");
+      } catch (error) {
+        this.showToast("Bulk Delete Failed", error.message, "error");
+      }
     }
   }
 
@@ -892,51 +983,51 @@ class App {
   async handleBulkDownload() {
     if (this.selectedItems.size === 0) return;
     try {
-        this.showToast("Packaging", "Generating ZIP archive...", "brand");
-        const blob = await this.fileManager.bulkDownload(Array.from(this.selectedItems));
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `hwai-bundle-${Date.now()}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        this.showToast("Success", "Download started", "success");
+      this.showToast("Packaging", "Generating ZIP archive...", "brand");
+      const blob = await this.fileManager.bulkDownload(Array.from(this.selectedItems));
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `hwai-bundle-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      this.showToast("Success", "Download started", "success");
     } catch (error) {
-        this.showToast("Download Failed", error.message, "error");
+      this.showToast("Download Failed", error.message, "error");
     }
   }
 
   async handleBulkShare() {
     if (this.selectedItems.size === 0) return;
-    
+
     // Load users if not already loaded
     if (!window.allUsers) {
-        try {
-            window.allUsers = await this.fileManager.loadAllUsers();
-        } catch (error) {
-            this.showToast("Permission Error", "Only admins can manage global sharing", "error");
-            return;
-        }
+      try {
+        window.allUsers = await this.fileManager.loadAllUsers();
+      } catch (error) {
+        this.showToast("Permission Error", "Only admins can manage global sharing", "error");
+        return;
+      }
     }
 
     this.tempSharedUserIds = [];
     this.currentSharingItems = Array.from(this.selectedItems);
-    
+
     document.getElementById('shareItemSubtitle').textContent = `Sharing ${this.currentSharingItems.length} selected items`;
-    
+
     // Determine common collaborators if multiple items
     this.activeCollaborators = [];
     if (this.currentSharingItems.length === 1) {
-        const itemId = this.currentSharingItems[0];
-        const item = this.fileManager.files.find(f => f._id === itemId) || this.fileManager.folders.find(f => f._id === itemId);
-        if (item && item.sharedWith) {
-            this.activeCollaborators = item.sharedWith.map(u => (u._id || u)).filter(id => id !== this.fileManager.user._id);
-        }
+      const itemId = this.currentSharingItems[0];
+      const item = this.fileManager.files.find(f => f._id === itemId) || this.fileManager.folders.find(f => f._id === itemId);
+      if (item && item.sharedWith) {
+        this.activeCollaborators = item.sharedWith.map(u => (u._id || u)).filter(id => id !== this.fileManager.user._id);
+      }
     } else {
-        // For bulk, we could show intersection or just empty for simplicity
-        this.activeCollaborators = [];
+      // For bulk, we could show intersection or just empty for simplicity
+      this.activeCollaborators = [];
     }
 
     this.renderShareUserList();
@@ -945,7 +1036,7 @@ class App {
 
   updateStats() {
     if (!this.fileManager.user) return;
-    
+
     const stats = this.fileManager.getStats();
     const user = this.fileManager.user;
     const usedVal = user.totalStorageUsed || 0;
@@ -955,20 +1046,20 @@ class App {
     // 1. Update Floating Gauge
     const gaugeProgress = document.getElementById('gaugeProgress');
     const gaugePercent = document.getElementById('gaugePercent');
-    
+
     if (gaugeProgress) {
-        // Circumference is 2 * PI * R = 2 * 3.14 * 24 = 150.72
-        const circumference = 150.8;
-        const offset = circumference - (percent / 100) * circumference;
-        gaugeProgress.style.strokeDashoffset = offset;
-        
-        // Color based on usage
-        if (percent > 90) gaugeProgress.classList.replace('text-tech-blue', 'text-rose-500');
-        else if (percent > 70) gaugeProgress.classList.replace('text-tech-blue', 'text-amber-500');
-        else {
-            gaugeProgress.classList.remove('text-rose-500', 'text-amber-500');
-            gaugeProgress.classList.add('text-tech-blue');
-        }
+      // Circumference is 2 * PI * R = 2 * 3.14 * 24 = 150.72
+      const circumference = 150.8;
+      const offset = circumference - (percent / 100) * circumference;
+      gaugeProgress.style.strokeDashoffset = offset;
+
+      // Color based on usage
+      if (percent > 90) gaugeProgress.classList.replace('text-tech-blue', 'text-rose-500');
+      else if (percent > 70) gaugeProgress.classList.replace('text-tech-blue', 'text-amber-500');
+      else {
+        gaugeProgress.classList.remove('text-rose-500', 'text-amber-500');
+        gaugeProgress.classList.add('text-tech-blue');
+      }
     }
     if (gaugePercent) gaugePercent.textContent = `${percent}%`;
 
@@ -983,12 +1074,12 @@ class App {
     if (modalUsageValue) modalUsageValue.textContent = this.formatSize(usedVal);
     if (modalLimitValue) modalLimitValue.textContent = this.formatSize(quotaVal);
     if (modalUsageBar) {
-        modalUsageBar.style.width = `${percent}%`;
-        if (percent > 90) modalUsageBar.className = 'h-full bg-rose-500 rounded-full transition-all duration-1000';
-        else if (percent > 70) modalUsageBar.className = 'h-full bg-amber-500 rounded-full transition-all duration-1000';
-        else modalUsageBar.className = 'h-full bg-tech-blue rounded-full transition-all duration-1000';
+      modalUsageBar.style.width = `${percent}%`;
+      if (percent > 90) modalUsageBar.className = 'h-full bg-rose-500 rounded-full transition-all duration-1000';
+      else if (percent > 70) modalUsageBar.className = 'h-full bg-amber-500 rounded-full transition-all duration-1000';
+      else modalUsageBar.className = 'h-full bg-tech-blue rounded-full transition-all duration-1000';
     }
-    
+
     if (totalFilesCount) totalFilesCount.textContent = stats.totalFiles;
     if (totalFoldersCount) totalFoldersCount.textContent = this.fileManager.folders.length;
     if (modalUserRole) modalUserRole.textContent = user.role || 'User';
@@ -1039,7 +1130,7 @@ class App {
     if (!suggestList || !activeList) return;
 
     const searchTerm = (document.getElementById('shareSearchInput')?.value || '').toLowerCase();
-    
+
     // 1. Render Active Collaborators
     const activeCandidates = (window.allUsers || []).filter(u => this.activeCollaborators.includes(u._id));
     activeList.innerHTML = activeCandidates.map(user => `
@@ -1060,15 +1151,15 @@ class App {
     `).join('');
 
     // 2. Render Suggestions
-    const suggestedCandidates = (window.allUsers || []).filter(u => 
-        !this.activeCollaborators.includes(u._id) && 
-        u._id !== this.fileManager.user._id &&
-        (u.username.toLowerCase().includes(searchTerm) || u.email.toLowerCase().includes(searchTerm))
+    const suggestedCandidates = (window.allUsers || []).filter(u =>
+      !this.activeCollaborators.includes(u._id) &&
+      u._id !== this.fileManager.user._id &&
+      (u.username.toLowerCase().includes(searchTerm) || u.email.toLowerCase().includes(searchTerm))
     );
 
     suggestList.innerHTML = suggestedCandidates.map(user => {
-        const isSelected = (this.tempSharedUserIds || []).includes(user._id);
-        return `
+      const isSelected = (this.tempSharedUserIds || []).includes(user._id);
+      return `
             <div class="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all cursor-pointer group" onclick="app.toggleShareUser('${user._id}')">
                 <div class="flex items-center gap-4">
                     <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-xs font-black border border-white/5 group-hover:border-tech-blue/30 transition-all">
@@ -1089,24 +1180,24 @@ class App {
 
   async handleRevoke(userId) {
     if (!this.currentSharingItems || !this.currentSharingItems.length) return;
-    
+
     if (confirm(`Revoke access for this user on ${this.currentSharingItems.length} items?`)) {
-        try {
-            this.showToast("Revoking", "Updating permissions...", "brand");
-            for (const itemId of this.currentSharingItems) {
-                const isFolder = this.fileManager.folders.some(f => f._id === itemId);
-                await this.fileManager.revokeAccess(itemId, isFolder ? 'folder' : 'file', userId);
-            }
-            this.showToast("Success", "Access revoked successfully", "success");
-            
-            // Remove from local tracking and re-render
-            this.activeCollaborators = this.activeCollaborators.filter(id => id !== userId);
-            this.renderShareUserList();
-            await this.loadData();
-        } catch (err) {
-            console.error(err);
-            this.showToast("Revoke Failed", err.message, "error");
+      try {
+        this.showToast("Revoking", "Updating permissions...", "brand");
+        for (const itemId of this.currentSharingItems) {
+          const isFolder = this.fileManager.folders.some(f => f._id === itemId);
+          await this.fileManager.revokeAccess(itemId, isFolder ? 'folder' : 'file', userId);
         }
+        this.showToast("Success", "Access revoked successfully", "success");
+
+        // Remove from local tracking and re-render
+        this.activeCollaborators = this.activeCollaborators.filter(id => id !== userId);
+        this.renderShareUserList();
+        await this.loadData();
+      } catch (err) {
+        console.error(err);
+        this.showToast("Revoke Failed", err.message, "error");
+      }
     }
   }
 
@@ -1123,22 +1214,22 @@ class App {
 window.closeShareItemModal = () => document.getElementById('shareItemModal').classList.add('hidden');
 window.filterShareUsers = () => app.renderShareUserList();
 document.getElementById('confirmShareBtn')?.addEventListener('click', async () => {
-    if (!app.currentSharingItems || !app.currentSharingItems.length) return;
-    
-    try {
-        app.showToast("Synchronizing", "Updating sharing registry...", "brand");
-        for (const itemId of app.currentSharingItems) {
-            const isFolder = app.fileManager.folders.some(f => f._id === itemId);
-            await app.fileManager.shareItem(itemId, isFolder ? 'folder' : 'file', app.tempSharedUserIds);
-        }
-        app.showToast("Success", "Access permissions synchronized", "success");
-        window.closeShareItemModal();
-        app.selectedItems.clear();
-        app.loadData();
-    } catch (err) {
-        console.error(err);
-        app.showToast("Sync Error", "Failed to update sharing registry", "error");
+  if (!app.currentSharingItems || !app.currentSharingItems.length) return;
+
+  try {
+    app.showToast("Synchronizing", "Updating sharing registry...", "brand");
+    for (const itemId of app.currentSharingItems) {
+      const isFolder = app.fileManager.folders.some(f => f._id === itemId);
+      await app.fileManager.shareItem(itemId, isFolder ? 'folder' : 'file', app.tempSharedUserIds);
     }
+    app.showToast("Success", "Access permissions synchronized", "success");
+    window.closeShareItemModal();
+    app.selectedItems.clear();
+    app.loadData();
+  } catch (err) {
+    console.error(err);
+    app.showToast("Sync Error", "Failed to update sharing registry", "error");
+  }
 });
 
 let app;

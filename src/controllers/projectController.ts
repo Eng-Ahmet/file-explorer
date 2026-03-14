@@ -9,14 +9,14 @@ import { getFolderPath } from '../utils/pathHelper.js';
 
 export const createProject = async (req: Request, res: Response) => {
   try {
-    const { name, description, members } = req.body;
+    const { name, description, budget, deadline, priority, members } = req.body;
     const adminId = (req as any).user.id;
     const admin = await User.findById(adminId);
     if (!admin) return res.status(404).json({ message: 'Admin not found' });
 
     // Find the admin's root folder
     let adminRootFolder = await Folder.findOne({ createdBy: adminId, parentId: null });
-    
+
     // Fallback if no root folder exists (rare, but for safety)
     if (!adminRootFolder) {
       adminRootFolder = new Folder({
@@ -54,7 +54,10 @@ export const createProject = async (req: Request, res: Response) => {
       description,
       admin: adminId,
       members: members || [],
-      filesFolderId: projectFolder._id
+      filesFolderId: projectFolder._id,
+      budget: budget || 0,
+      deadline: deadline || null,
+      priority: priority || 'medium'
     });
 
     await project.save();
@@ -87,7 +90,7 @@ export const getProjects = async (req: Request, res: Response) => {
     const projects = await Project.find(query)
       .select('-notes -payments')
       .populate('admin members', 'username email');
-    
+
     res.json(projects);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -119,13 +122,13 @@ export const getAdminProjects = async (req: Request, res: Response) => {
 export const getAdminProjectStats = async (req: Request, res: Response) => {
   try {
     const projects = await Project.find();
-    const totalPayments = projects.reduce((acc, p) => 
-      acc + (p.payments || []).filter(pay => pay.type === 'payment').reduce((a, pay) => a + pay.amount, 0), 
-    0);
-    
-    const totalExpenses = projects.reduce((acc, p) => 
-      acc + (p.payments || []).filter(pay => pay.type === 'expense').reduce((a, pay) => a + pay.amount, 0), 
-    0);
+    const totalPayments = projects.reduce((acc, p) =>
+      acc + (p.payments || []).filter(pay => pay.type === 'payment').reduce((a, pay) => a + pay.amount, 0),
+      0);
+
+    const totalExpenses = projects.reduce((acc, p) =>
+      acc + (p.payments || []).filter(pay => pay.type === 'expense').reduce((a, pay) => a + pay.amount, 0),
+      0);
 
     res.json({
       totalProjects: projects.length,
@@ -143,7 +146,7 @@ export const getProjectAdminDetails = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const project = await Project.findById(projectId).populate('admin members notes.user', 'username email');
-    
+
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
     const tasks = await Task.find({ projectId }).populate('assignedTo', 'username');
@@ -202,7 +205,7 @@ export const addProjectPayment = async (req: Request, res: Response) => {
 export const createTask = async (req: Request, res: Response) => {
   try {
     const { projectId, title, description, assignedTo, status } = req.body;
-    
+
     // Check if project exists and user has access
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ message: 'Project not found' });

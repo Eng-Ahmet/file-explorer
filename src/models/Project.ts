@@ -20,6 +20,9 @@ export interface IProject extends Document {
   admin: mongoose.Types.ObjectId;
   members: mongoose.Types.ObjectId[];
   status: 'active' | 'completed' | 'archived';
+  priority: 'low' | 'medium' | 'high';
+  budget: number;
+  deadline: Date;
   notes: INote[];
   payments: IPayment[];
   filesFolderId?: mongoose.Types.ObjectId;
@@ -32,6 +35,9 @@ const ProjectSchema: Schema = new Schema({
   admin: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   members: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   status: { type: String, enum: ['active', 'completed', 'archived'], default: 'active' },
+  priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+  budget: { type: Number, default: 0 },
+  deadline: { type: Date },
   notes: [{
     text: String,
     user: { type: Schema.Types.ObjectId, ref: 'User' },

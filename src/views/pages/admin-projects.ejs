@@ -33,13 +33,14 @@
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
                         <h1 class="text-3xl font-extrabold text-white tracking-tight">Project Matrix</h1>
-                        <p class="text-slate-500 text-sm mt-1">Cross-unit operational intelligence and financial ledger.</p>
+                        <p class="text-slate-500 text-sm mt-1">Cross-unit operational intelligence and financial ledger.
+                        </p>
                     </div>
-                    <button onclick="openNewProjectModal()" 
-                        class="px-6 py-3.5 rounded-[1.25rem] bg-tech-blue hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 shadow-lg shadow-tech-blue/20">
+                    <a href="/admin/create-project"
+                        class="px-6 py-3.5 rounded-[1.25rem] bg-tech-blue hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 shadow-lg shadow-tech-blue/20 mb-4">
                         <i class="fas fa-plus"></i>
                         <span>Initiate New Project</span>
-                    </button>
+                    </a>
                 </div>
 
                 <!-- Global Stats -->
@@ -85,47 +86,6 @@
                 <div id="detailContent"
                     class="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-12 relative z-10 w-full">
                     <!-- Details injected here -->
-                </div>
-            </div>
-        </div>
-
-        <!-- New Project Modal -->
-        <div id="newProjectModal" class="fixed inset-0 z-[150] hidden">
-            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="closeModal('newProjectModal')">
-            </div>
-            <div
-                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg glass rounded-3xl p-8 border border-white/10">
-                <h3 class="text-xl font-bold mb-6">Initiate New Project</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label
-                            class="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Project
-                            Identity</label>
-                        <input type="text" id="newProjectName"
-                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-tech-blue">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Scope
-                            & Objectives</label>
-                        <textarea id="newProjectDesc" rows="3"
-                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-tech-blue"></textarea>
-                    </div>
-                    <div>
-                        <label
-                            class="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Mission
-                            Operatives (Members)</label>
-                        <div id="userSelectionList"
-                            class="max-h-40 overflow-y-auto custom-scrollbar space-y-2 bg-white/5 rounded-xl p-4 border border-white/10">
-                            <!-- Users dynamic -->
-                        </div>
-                    </div>
-                    <div class="flex gap-4">
-                        <button onclick="closeModal('newProjectModal')"
-                            class="flex-1 px-6 py-4 rounded-2xl bg-white/5 hover:bg-white/10 font-bold transition-all">Abort</button>
-                        <button id="createProjectBtn" onclick="initiateProject()"
-                            class="flex-1 px-6 py-4 rounded-2xl bg-tech-blue hover:bg-blue-600 font-bold transition-all">Create
-                            Project</button>
-                    </div>
                 </div>
             </div>
         </div>

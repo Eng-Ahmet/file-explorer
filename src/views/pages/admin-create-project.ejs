@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" class="dark bg-[#0F172A]" style="background-color: #0F172A; color-scheme: dark;">
+
+<head>
+    <title>Create Project - Hwai Technology</title>
+    <%- include('../partials/head') %>
+        <%- include('../partials/auth-guard', { requireAdmin: true }) %>
+</head>
+
+<body class="flex flex-col h-screen overflow-hidden bg-[#0F172A] text-slate-200">
+    <%- include('../partials/header') %>
+
+        <main class="flex-1 overflow-y-auto relative flex">
+            <!-- Sidebar Backdrop (Mobile Only) -->
+            <div id="sidebarOverlay"
+                class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[55] hidden lg:hidden transition-opacity duration-300 opacity-0 cursor-pointer">
+            </div>
+
+            <!-- Sidebar -->
+            <aside id="sidebar"
+                class="fixed lg:relative inset-y-0 left-0 w-72 border-r border-white/10 glass overflow-y-auto custom-scrollbar flex flex-col p-6 gap-8 z-[60] transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+                <div class="lg:hidden flex justify-end mb-2">
+                    <button id="closeMenuBtn" class="p-2 text-slate-500 hover:text-white transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <%- include('../partials/sidebar-nav') %>
+            </aside>
+
+            <div class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar bg-slate-900/50">
+                <div class="max-w-4xl mx-auto">
+                    <!-- Page Header -->
+                    <div class="mb-8">
+                        <div class="flex items-center gap-4 mb-4">
+                            <a href="/admin/projects"
+                                class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
+                                <i class="fas fa-arrow-left text-slate-400"></i>
+                            </a>
+                            <div>
+                                <h1 class="text-3xl font-bold text-white">Create New Project</h1>
+                                <p class="text-slate-500 text-sm mt-1">Initiate a new intelligence operation</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Container -->
+                    <form id="createProjectForm" class="space-y-8">
+                        <!-- Project Information Section -->
+                        <div class="glass p-8 rounded-[2.5rem] border border-white/5 shadow-xl">
+                            <h2 class="text-lg font-bold mb-6 flex items-center gap-3">
+                                <div
+                                    class="w-10 h-10 rounded-lg bg-tech-blue/20 flex items-center justify-center text-tech-blue">
+                                    <i class="fas fa-info-circle"></i>
+                                </div>
+                                Project Information
+                            </h2>
+                            <div class="space-y-6">
+                                <!-- Project Name -->
+                                <div>
+                                    <label
+                                        class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                                        <i class="fas fa-file-alt mr-2 text-tech-blue"></i>Project Name
+                                    </label>
+                                    <input type="text" id="projectName" placeholder="e.g. Customer Portal Redesign"
+                                        class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-tech-blue focus:bg-white/10 transition-all">
+                                </div>
+
+                                <!-- Project Description -->
+                                <div>
+                                    <label
+                                        class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                                        <i class="fas fa-align-left mr-2 text-tech-blue"></i>Description
+                                    </label>
+                                    <textarea id="projectDesc" rows="5"
+                                        placeholder="Provide a detailed description of the project..."
+                                        class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-tech-blue focus:bg-white/10 transition-all resize-none"></textarea>
+                                </div>
+
+                                <!-- Budget Information -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label
+                                            class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                                            <i class="fas fa-money-bill mr-2 text-emerald-400"></i>Budget (USD)
+                                        </label>
+                                        <input type="number" id="projectBudget" placeholder="0.00" min="0" step="0.01"
+                                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-400 focus:bg-white/10 transition-all">
+                                    </div>
+
+                                    <div>
+                                        <label
+                                            class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                                            <i class="fas fa-calendar mr-2 text-indigo-400"></i>Target Completion Date
+                                        </label>
+                                        <input type="date" id="projectDeadline"
+                                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-400 focus:bg-white/10 transition-all">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Team Members Section -->
+                        <div class="glass p-8 rounded-[2.5rem] border border-white/5 shadow-xl">
+                            <h2 class="text-lg font-bold mb-6 flex items-center gap-3">
+                                <div
+                                    class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                Assign Team Members
+                            </h2>
+                            <div id="teamMembersList" class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
+                                <!-- Team members will be loaded here -->
+                                <div class="flex items-center justify-center py-8">
+                                    <div class="text-center">
+                                        <i class="fas fa-spinner-third animate-spin text-2xl text-tech-blue mb-3"></i>
+                                        <p class="text-slate-500">Loading team members...</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-6 p-4 bg-tech-blue/5 border border-tech-blue/20 rounded-xl">
+                                <p class="text-xs text-slate-400">
+                                    <i class="fas fa-circle-info text-tech-blue mr-2"></i>
+                                    Select team members who will be part of this project
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Project Priority -->
+                        <div class="glass p-8 rounded-[2.5rem] border border-white/5 shadow-xl">
+                            <h2 class="text-lg font-bold mb-6 flex items-center gap-3">
+                                <div
+                                    class="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400">
+                                    <i class="fas fa-flag"></i>
+                                </div>
+                                Priority Level
+                            </h2>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <label
+                                    class="flex items-center gap-3 p-4 border-2 border-white/10 rounded-xl cursor-pointer hover:border-white/20 transition-all priority-option"
+                                    data-priority="low">
+                                    <input type="radio" name="priority" value="low" class="w-4 h-4">
+                                    <div>
+                                        <div class="font-semibold text-white">Low</div>
+                                        <div class="text-xs text-slate-500">Can be deferred</div>
+                                    </div>
+                                </label>
+                                <label
+                                    class="flex items-center gap-3 p-4 border-2 border-white/10 rounded-xl cursor-pointer hover:border-white/20 transition-all priority-option"
+                                    data-priority="medium">
+                                    <input type="radio" name="priority" value="medium" checked class="w-4 h-4">
+                                    <div>
+                                        <div class="font-semibold text-white">Medium</div>
+                                        <div class="text-xs text-slate-500">Standard timeline</div>
+                                    </div>
+                                </label>
+                                <label
+                                    class="flex items-center gap-3 p-4 border-2 border-white/10 rounded-xl cursor-pointer hover:border-white/20 transition-all priority-option"
+                                    data-priority="high">
+                                    <input type="radio" name="priority" value="high" class="w-4 h-4">
+                                    <div>
+                                        <div class="font-semibold text-white">High</div>
+                                        <div class="text-xs text-slate-500">Urgent delivery</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex gap-4 justify-end">
+                            <a href="/admin/projects"
+                                class="px-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-bold text-sm uppercase tracking-widest transition-all">
+                                Cancel
+                            </a>
+                            <button type="submit" onclick="submitProjectForm(event)"
+                                class="px-8 py-4 rounded-2xl bg-tech-blue hover:bg-blue-600 text-white font-bold text-sm uppercase tracking-widest transition-all shadow-lg shadow-tech-blue/20 flex items-center gap-3">
+                                <i class="fas fa-check"></i>
+                                <span>Create Project</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+
+        <%- include('../partials/toast') %>
+
+            <script>
+                // Load team members
+                async function loadTeamMembers() {
+                    try {
+                        const token = localStorage.getItem('token');
+                        const response = await fetch('/api/admin/users', {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+
+                        if (response.status === 401 || response.status === 403) {
+                            showToast('Authentication error. Please login as admin.', 'error');
+                            return;
+                        }
+
+                        const users = await response.json();
+                        const container = document.getElementById('teamMembersList');
+
+                        if (!users || !users.length) {
+                            container.innerHTML = '<p class="text-slate-500">No users available</p>';
+                            return;
+                        }
+
+                        container.innerHTML = users.map(user => `
+                                    <label class="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-all cursor-pointer">
+                                        <input type="checkbox" class="w-4 h-4 rounded team-member-checkbox" value="${user._id}" data-name="${user.email}">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="font-semibold text-white text-sm truncate">${user.email}</div>
+                                            <div class="text-xs text-slate-500 capitalize">${user.role || 'User'}</div>
+                                        </div>
+                                    </label>
+                                `).join('');
+                    } catch (error) {
+                        console.error('Error loading team members:', error);
+                        document.getElementById('teamMembersList').innerHTML = '<p class="text-red-400">Error loading users</p>';
+                    }
+                }
+
+                // Submit project form
+                async function submitProjectForm(e) {
+                    e.preventDefault();
+
+                    const name = document.getElementById('projectName').value.trim();
+                    const description = document.getElementById('projectDesc').value.trim();
+                    const budget = parseFloat(document.getElementById('projectBudget').value) || 0;
+                    const deadline = document.getElementById('projectDeadline').value;
+                    const priority = document.querySelector('input[name="priority"]:checked').value;
+
+                    const members = Array.from(document.querySelectorAll('.team-member-checkbox:checked'))
+                        .map(cb => cb.value);
+
+                    if (!name) {
+                        showToast('Please enter project name', 'error');
+                        return;
+                    }
+
+                    try {
+                        const token = localStorage.getItem('token');
+                        const response = await fetch('/api/projects', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                name,
+                                description,
+                                budget,
+                                deadline,
+                                priority,
+                                members
+                            })
+                        });
+
+                        if (response.ok) {
+                            showToast('Project created successfully!', 'success');
+                            setTimeout(() => window.location.href = '/admin/projects', 1500);
+                        } else {
+                            showToast('Failed to create project', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showToast('Error creating project', 'error');
+                    }
+                }
+
+                // Load team members on page load
+                document.addEventListener('DOMContentLoaded', loadTeamMembers);
+            </script>
+</body>
+
+</html>
