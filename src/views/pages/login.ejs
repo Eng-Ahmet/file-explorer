@@ -1,34 +1,33 @@
 <!DOCTYPE html>
 <html lang="en" class="dark bg-[#0F172A]" style="background-color: #0F172A; color-scheme: dark;">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hwai Technology - Access Terminal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/js/tailwind-config.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-        // Anti-flicker: Pre-check if already logged in before rendering anything
-        const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || 'null');
-        if (token && user) {
-            window.location.href = user.role === 'admin' ? '/admin' : '/';
-        } else {
-            // Only show content if not logged in
-            document.documentElement.classList.add('ready');
-        }
-    </script>
-    <style>
-        html:not(.ready) body { opacity: 0; }
-        body { background: #0F172A; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; transition: opacity 0.3s ease-in-out; }
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
-    </style>
+    <%- include('../partials/head') %>
+        <script>
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || 'null');
+            if (token && user) {
+                window.location.href = user.role === 'admin' ? '/admin' : '/files';
+            } else {
+                document.documentElement.classList.add('ready');
+            }
+        </script>
+        <style>
+            html:not(.ready) body {
+                opacity: 0;
+            }
+
+            body {
+                transition: opacity 0.3s ease-in-out;
+            }
+        </style>
 </head>
+
 <body class="min-h-screen flex items-center justify-center p-6 bg-[#0F172A] text-slate-200">
     <div class="w-full max-w-md animate-fade-in">
         <div class="flex flex-col items-center mb-10">
-            <a href="/" class="mb-4">
+            <a href="/files" class="mb-4">
                 <img src="/images/logo.png" alt="Hwai Technology" class="h-16 w-auto">
             </a>
             <p class="text-slate-500">Secure Authentication Terminal</p>
@@ -37,7 +36,8 @@
         <div class="glass p-8 rounded-3xl shadow-2xl">
             <form id="loginForm" class="space-y-6">
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Email Address</label>
+                    <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Email
+                        Address</label>
                     <div class="relative">
                         <i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
                         <input type="email" name="email" required placeholder="name@example.com"
@@ -46,7 +46,8 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Password</label>
+                    <label
+                        class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Password</label>
                     <div class="relative">
                         <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
                         <input type="password" name="password" required placeholder="••••••••"
@@ -54,7 +55,8 @@
                     </div>
                 </div>
 
-                <button type="submit" class="w-full bg-tech-blue hover:opacity-90 text-white font-bold py-3 rounded-xl shadow-lg shadow-tech-blue/20 transition-all active:scale-[0.98]">
+                <button type="submit"
+                    class="w-full bg-tech-blue hover:opacity-90 text-white font-bold py-3 rounded-xl shadow-lg shadow-tech-blue/20 transition-all active:scale-[0.98]">
                     Sign In
                 </button>
             </form>
@@ -63,7 +65,8 @@
                 <p class="text-slate-500 text-sm">
                     New here? <a href="/register" class="text-tech-blue font-bold hover:underline">Create an account</a>
                 </p>
-                <a href="/" class="inline-block mt-4 text-xs text-slate-600 hover:text-slate-400 transition-colors uppercase font-bold tracking-widest">
+                <a href="/files"
+                    class="inline-block mt-4 text-xs text-slate-600 hover:text-slate-400 transition-colors uppercase font-bold tracking-widest">
                     <i class="fas fa-arrow-left me-1"></i> Back to Explorer
                 </a>
             </div>
@@ -76,27 +79,26 @@
             const data = Object.fromEntries(new FormData(e.target));
             const btn = e.target.querySelector('button');
             const originalText = btn.textContent;
-            
+
             try {
                 btn.disabled = true;
                 btn.textContent = 'Authenticating...';
-                
+
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
                 const result = await res.json();
-                
+
                 if (res.ok) {
                     localStorage.setItem('token', result.token);
                     localStorage.setItem('user', JSON.stringify(result.user));
-                    
-                    // Role-based redirection
+
                     if (result.user.role === 'admin') {
                         window.location.href = '/admin';
                     } else {
-                        window.location.href = '/';
+                        window.location.href = '/files';
                     }
                 } else {
                     alert(result.message);
@@ -111,4 +113,5 @@
         });
     </script>
 </body>
+
 </html>

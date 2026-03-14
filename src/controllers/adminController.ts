@@ -312,3 +312,21 @@ export const recalculateAllStorage = async (req: AuthRequest, res: Response) => 
     res.status(500).json({ message: 'Error during deep storage sync', error: err });
   }
 };
+
+export const updateUserSharedWith = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { sharedWith } = req.body;
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      id,
+      { sharedWith: sharedWith || [] },
+      { new: true }
+    ).select('-passwordHash');
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Error updating shared users', error: err });
+  }
+};

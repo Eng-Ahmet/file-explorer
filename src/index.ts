@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import fileRoutes from './routes/files.js';
 import folderRoutes from './routes/folders.js';
 import adminRoutes from './routes/admin.js';
+import projectRoutes from './routes/projects.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,10 +25,26 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/file-m
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(process.cwd(), 'public')));
+
+// Dynamic path resolution
+const rootDir = process.cwd();
+const publicDir = path.resolve(rootDir, 'public');
+const viewsDir = path.resolve(rootDir, 'src', 'views', 'pages');
+
+console.log('--- Path Configuration ---');
+console.log('Root:', rootDir);
+console.log('Public:', publicDir);
+console.log('Views:', viewsDir);
+console.log('---------------------------');
+
+app.use(express.static(publicDir));
+
+// EJS Configuration
+app.set('view engine', 'ejs');
+app.set('views', viewsDir);
 
 // Ensure uploads directory exists
-const uploadsDir = path.join(process.cwd(), 'uploads');
+const uploadsDir = path.join(rootDir, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
@@ -37,15 +54,27 @@ app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/projects', projectRoutes);
 
 // Serve pages
-app.get('/login', (req, res) => res.sendFile(path.join(process.cwd(), 'public', 'pages', 'login.html')));
-app.get('/register', (req, res) => res.sendFile(path.join(process.cwd(), 'public', 'pages', 'register.html')));
-app.get('/admin', (req, res) => res.sendFile(path.join(process.cwd(), 'public', 'pages', 'admin.html')));
-app.get('/files', (req, res) => res.sendFile(path.join(process.cwd(), 'public', 'pages', 'index.html')));
+app.get('/login', (req, res) => res.render('login'));
+app.get('/register', (req, res) => res.render('register'));
+app.get('/admin', (req, res) => res.render('admin'));
+app.get('/admin/projects', (req, res) => res.render('admin-projects'));
+app.get('/files', (req, res) => res.render('index'));
+app.get('/projects', (req, res) => res.render('projects'));
 
-// Fallback to Dashboard/Home
-app.get('*', (req, res) => res.sendFile(path.join(process.cwd(), 'public', 'pages', 'index.html')));
+// Home redirect
+app.get('/', (req, res) => res.redirect('/files'));
+
+// Fallback to Dashboard/Home for non-asset requests
+app.get('*', (req, res, next) => {
+  // If requesting a file (with extension), don't render HTML - let it fall through to 404
+  if (path.extname(req.url)) {
+    return next();
+  }
+  res.render('index');
+});
 // Database Connection
 mongoose.connect(MONGODB_URI)
   .then(() => {

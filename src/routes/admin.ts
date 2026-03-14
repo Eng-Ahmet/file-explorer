@@ -17,6 +17,7 @@ router.put('/users/:id/permissions', adminController.updateUserPermissions);
 router.patch('/users/:id/supervisor', adminController.updateSupervisor);
 router.patch('/users/:id/quota', adminController.updateUserQuota);
 router.patch('/users/:id/status', adminController.toggleUserStatus);
+router.patch('/users/:id/shared-with', adminController.updateUserSharedWith);
 router.post('/users/:id/reset-password', adminController.resetPassword);
 router.post('/sync-storage', adminController.recalculateAllStorage);
 router.delete('/users/:id', adminController.deleteUser);

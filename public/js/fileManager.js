@@ -119,6 +119,37 @@ class FileManager {
     }
     return res.json();
   }
+
+  async shareItem(id, type, userIds) {
+    const endpoint = type === 'file' ? '/api/files/share' : '/api/folders/share';
+    const body = type === 'file' ? { fileId: id, userIds } : { folderId: id, userIds };
+    const res = await this.fetchApi(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`Sharing ${type} failed`);
+    return res.json();
+  }
+
+  async revokeAccess(id, type, userId) {
+    const endpoint = type === 'file' ? '/api/files/revoke' : '/api/folders/revoke';
+    const body = type === 'file' ? { fileId: id, userId } : { folderId: id, userId };
+    const res = await this.fetchApi(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`Revoking ${type} access failed`);
+    return res.json();
+  }
+
+  async bulkDownload(ids) {
+    const res = await this.fetchApi('/api/files/bulk-download', {
+      method: 'POST',
+      body: JSON.stringify({ ids })
+    });
+    if (!res.ok) throw new Error('Bulk download failed');
+    return res.blob();
+  }
 }
 
 const fileManager = new FileManager();

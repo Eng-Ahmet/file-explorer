@@ -1,0 +1,42 @@
+<div id="bulkActionBar"
+    class="fixed bottom-8 left-1/2 -translate-x-1/2 glass px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 z-50 transition-all transform translate-y-32 opacity-0 pointer-events-none">
+    <div class="flex items-center gap-3 pr-6 border-r border-white/10">
+        <div class="w-10 h-10 rounded-xl bg-tech-blue/20 text-tech-blue flex items-center justify-center font-bold"
+            id="selectedCount">0</div>
+        <div class="text-sm font-bold text-white hidden sm:block">Items Selected</div>
+    </div>
+    <div class="flex items-center gap-4">
+        <button id="bulkMoveBtn"
+            class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium">
+            <i class="fas fa-file-export"></i>
+            <span>Move</span>
+        </button>
+        <button id="bulkDownloadBtn"
+            class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium"
+            title="Download selection as ZIP">
+            <i class="fas fa-download"></i>
+            <span>Download</span>
+        </button>
+        <button id="bulkCopyBtn"
+            class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium">
+            <i class="fas fa-copy"></i>
+            <span>Copy</span>
+        </button>
+        <button id="bulkShareBtn"
+            class="hidden items-center gap-2 text-slate-400 hover:text-tech-blue transition-colors text-sm font-medium"
+            title="Share with collaborators">
+            <i class="fas fa-share-nodes"></i>
+            <span>Share</span>
+        </button>
+        <button id="bulkPasteBtn"
+            class="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors text-sm font-medium hidden">
+            <i class="fas fa-paste"></i>
+            <span>Paste</span>
+        </button>
+        <button id="bulkDeleteBtn"
+            class="flex items-center gap-2 text-rose-400 hover:text-rose-300 transition-colors text-sm font-medium">
+            <i class="fas fa-trash-can"></i>
+            <span>Delete</span>
+        </button>
+    </div>
+</div>

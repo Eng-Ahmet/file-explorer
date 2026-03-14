@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" class="dark bg-[#0F172A]" style="background-color: #0F172A; color-scheme: dark;">
+
+<head>
+    <title>Project Management Dashboard - Hwai Technology</title>
+    <%- include('../partials/head') %>
+        <%- include('../partials/scripts') %>
+            <%- include('../partials/auth-guard', { requireAdmin: true }) %>
+</head>
+
+<body class="flex flex-col h-screen overflow-hidden bg-[#0F172A] text-slate-200">
+    <%- include('../partials/header') %>
+
+        <main class="flex-1 overflow-y-auto relative flex">
+            <!-- Sidebar Backdrop (Mobile Only) -->
+            <div id="sidebarOverlay"
+                class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[55] hidden lg:hidden transition-opacity duration-300 opacity-0 cursor-pointer">
+            </div>
+
+            <!-- Sidebar -->
+            <aside id="sidebar"
+                class="fixed lg:relative inset-y-0 left-0 w-72 border-r border-white/10 glass overflow-y-auto custom-scrollbar flex flex-col p-6 gap-8 z-[60] transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+                <div class="lg:hidden flex justify-end mb-2">
+                    <button id="closeMenuBtn" class="p-2 text-slate-500 hover:text-white transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <%- include('../partials/sidebar-nav') %>
+            </aside>
+
+            <div class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar bg-slate-900/50">
+                <!-- Page Header with Action -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div>
+                        <h1 class="text-3xl font-extrabold text-white tracking-tight">Project Matrix</h1>
+                        <p class="text-slate-500 text-sm mt-1">Cross-unit operational intelligence and financial ledger.</p>
+                    </div>
+                    <button onclick="openNewProjectModal()" 
+                        class="px-6 py-3.5 rounded-[1.25rem] bg-tech-blue hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 shadow-lg shadow-tech-blue/20">
+                        <i class="fas fa-plus"></i>
+                        <span>Initiate New Project</span>
+                    </button>
+                </div>
+
+                <!-- Global Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="tech-card p-6 rounded-[2rem] border-l-4 border-tech-blue shadow-xl">
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Active
+                            Units</span>
+                        <div id="activeProjectsCount" class="text-3xl font-bold mt-1">0</div>
+                    </div>
+                    <div class="tech-card p-6 rounded-[2rem] border-l-4 border-emerald-500 shadow-xl">
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Revenue
+                            (Payments)</span>
+                        <div id="totalRevenue" class="text-3xl font-bold mt-1 text-emerald-400">$0</div>
+                    </div>
+                    <div class="tech-card p-6 rounded-[2rem] border-l-4 border-rose-500 shadow-xl">
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Burn Rate
+                            (Expenses)</span>
+                        <div id="totalExpenses" class="text-3xl font-bold mt-1 text-rose-400">$0</div>
+                    </div>
+                    <div id="balanceCard" class="tech-card p-6 rounded-[2rem] border-l-4 border-indigo-500 shadow-xl">
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Net Intelligence
+                            Profit</span>
+                        <div id="netBalance" class="text-3xl font-bold mt-1">$0</div>
+                    </div>
+                </div>
+
+                <!-- Projects Grid -->
+                <div id="projectsGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Project cards injected here -->
+                </div>
+            </div>
+            </div>
+        </main>
+
+        <!-- Detail View Overlay (Modal) -->
+        <div id="adminProjectModal" class="fixed inset-0 z-[100] hidden">
+            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md transition-all duration-300"
+                onclick="closeAdminProjectModal()"></div>
+            <div
+                class="absolute top-1/2 left-1/2 w-[95%] max-w-6xl h-[90vh] -translate-x-1/2 -translate-y-1/2 bg-[#0F172A]/90 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] flex flex-col shadow-2xl shadow-tech-blue/10 transition-all duration-500 overflow-hidden ring-1 ring-white/5 animate-in zoom-in-95">
+                <div class="absolute inset-0 bg-gradient-to-br from-tech-blue/5 to-transparent pointer-events-none">
+                </div>
+                <div id="detailContent"
+                    class="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-12 relative z-10 w-full">
+                    <!-- Details injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- New Project Modal -->
+        <div id="newProjectModal" class="fixed inset-0 z-[150] hidden">
+            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="closeModal('newProjectModal')">
+            </div>
+            <div
+                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg glass rounded-3xl p-8 border border-white/10">
+                <h3 class="text-xl font-bold mb-6">Initiate New Project</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label
+                            class="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Project
+                            Identity</label>
+                        <input type="text" id="newProjectName"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-tech-blue">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Scope
+                            & Objectives</label>
+                        <textarea id="newProjectDesc" rows="3"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-tech-blue"></textarea>
+                    </div>
+                    <div>
+                        <label
+                            class="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">Mission
+                            Operatives (Members)</label>
+                        <div id="userSelectionList"
+                            class="max-h-40 overflow-y-auto custom-scrollbar space-y-2 bg-white/5 rounded-xl p-4 border border-white/10">
+                            <!-- Users dynamic -->
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <button onclick="closeModal('newProjectModal')"
+                            class="flex-1 px-6 py-4 rounded-2xl bg-white/5 hover:bg-white/10 font-bold transition-all">Abort</button>
+                        <button id="createProjectBtn" onclick="initiateProject()"
+                            class="flex-1 px-6 py-4 rounded-2xl bg-tech-blue hover:bg-blue-600 font-bold transition-all">Create
+                            Project</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="/js/admin-projects.js"></script>
+</body>
+
+</html>

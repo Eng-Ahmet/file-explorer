@@ -1,0 +1,216 @@
+<!-- Activity Log Modal -->
+<div id="logModal" class="fixed inset-0 z-[150] hidden">
+    <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="closeLogModal()"></div>
+    <div
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-[#0F172A] border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+        <div class="p-6 border-b border-white/10 flex items-center justify-between bg-white/5">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-tech-blue/10 flex items-center justify-center text-tech-blue">
+                    <i class="fas fa-history text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-white">Activity Logs</h3>
+                    <p id="logModalSubtitle" class="text-slate-500 text-xs">Tracking system interactions</p>
+                </div>
+            </div>
+            <button onclick="closeLogModal()"
+                class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/5 text-slate-500 hover:text-white transition-all">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="logContent" class="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar space-y-4"></div>
+        <div class="p-4 bg-white/5 border-t border-white/10 text-center">
+            <p id="logCountLabel" class="text-[10px] font-bold uppercase tracking-widest text-slate-500 text-center">
+                Showing recent activities</p>
+        </div>
+    </div>
+</div>
+
+<!-- Password Reset Modal -->
+<div id="passwordModal" class="fixed inset-0 z-[150] hidden">
+    <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="closePasswordModal()"></div>
+    <div
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-[#0F172A] border border-white/10 rounded-3xl shadow-2xl overflow-hidden p-8">
+        <h3 class="text-xl font-bold text-white mb-2">Reset Password</h3>
+        <p id="passwordModalUser" class="text-slate-500 text-sm mb-6"></p>
+        <div class="space-y-4">
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-400 uppercase">New Password</label>
+                <input type="password" id="newPasswordInput"
+                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-tech-blue">
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button onclick="closePasswordModal()"
+                    class="flex-1 px-4 py-3 rounded-xl bg-white/5 text-slate-400 font-bold text-sm hover:bg-white/10 transition-all">Cancel</button>
+                <button id="confirmPasswordBtn"
+                    class="flex-1 px-4 py-3 rounded-xl bg-tech-blue text-white font-bold text-sm hover:bg-blue-600 transition-all shadow-lg shadow-tech-blue/20">Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Access Management Modal -->
+<div id="accessModal" class="fixed inset-0 z-[160] hidden">
+    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeAccessModal()"></div>
+    <div
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg glass rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-300">
+        <div class="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+            <div>
+                <h3 class="text-xl font-bold text-white">Monitoring Permissions</h3>
+                <p id="accessModalSubtitle" class="text-xs text-slate-500 mt-1"></p>
+            </div>
+            <button onclick="closeAccessModal()"
+                class="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-400 rounded-full transition-all">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="p-8">
+            <div class="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar" id="accessUserList"></div>
+
+            <div
+                class="mt-8 flex items-center justify-between p-4 bg-tech-blue/5 rounded-2xl border border-tech-blue/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-tech-blue/20 flex items-center justify-center text-tech-blue">
+                        <i class="fas fa-shield-halved text-xs"></i>
+                    </div>
+                    <div class="text-[10px] text-slate-400 font-medium leading-relaxed">
+                        Selected users will be visible to this account <br />
+                        when <span class="text-tech-blue font-bold">"View Others' Files"</span> is enabled.
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex gap-3">
+                <button onclick="closeAccessModal()"
+                    class="flex-1 px-6 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-all">Cancel</button>
+                <button id="saveAccessBtn"
+                    class="flex-1 px-6 py-4 rounded-2xl bg-tech-blue hover:bg-blue-600 text-white text-sm font-bold transition-all shadow-lg shadow-tech-blue/20">Save
+                    Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editUserModal" class="fixed inset-0 z-[150] hidden">
+    <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onclick="closeEditUserModal()"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-xl bg-[#0F172A] border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+        <!-- Header -->
+        <div class="p-8 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 rounded-2xl bg-tech-blue/10 flex items-center justify-center text-tech-blue border border-tech-blue/20">
+                    <i class="fas fa-user-cog text-2xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-black text-white">Node Command Center</h3>
+                    <p id="editUserSubtitle" class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Modifying identity & permissions</p>
+                </div>
+            </div>
+            <button onclick="closeEditUserModal()" class="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl text-slate-400 hover:text-white hover:bg-white/10 transition-all border border-white/5">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            <input type="hidden" id="editUserId">
+            
+            <!-- Basic Config -->
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-3">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Access Level</label>
+                    <select id="editUserRole" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-tech-blue/50 focus:bg-white/10 transition-all appearance-none cursor-pointer">
+                        <option value="user" class="bg-slate-900">Standard Operator</option>
+                        <option value="admin" class="bg-slate-900">System Admin</option>
+                    </select>
+                </div>
+                <div class="space-y-3">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Account Status</label>
+                    <div class="flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5">
+                        <span id="statusToggleLabel" class="text-sm font-bold text-white">Active</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="editUserActive" class="sr-only peer" checked onchange="updateStatusLabel()">
+                            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resource Allocation -->
+            <div class="space-y-3">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Storage Quota (MB)</label>
+                <div class="relative group">
+                    <i class="fas fa-hdd absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-tech-blue transition-colors text-sm"></i>
+                    <input type="number" id="editUserQuota" class="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-5 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-tech-blue/50 focus:bg-white/10 transition-all" placeholder="1024">
+                </div>
+            </div>
+
+            <!-- Permission Matrix -->
+            <div class="space-y-4">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Permission Matrix</label>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group hover:border-tech-blue/30 transition-all">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                                <i class="fas fa-eye text-xs"></i>
+                            </div>
+                            <span class="text-xs font-bold text-white">Read Access</span>
+                        </div>
+                        <input type="checkbox" id="permView" class="w-5 h-5 rounded-lg bg-white/5 border-white/10 text-tech-blue focus:ring-tech-blue/50 focus:ring-offset-0">
+                    </div>
+                    <div class="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group hover:border-tech-blue/30 transition-all">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-tech-blue/10 flex items-center justify-center text-tech-blue">
+                                <i class="fas fa-cloud-upload-alt text-xs"></i>
+                            </div>
+                            <span class="text-xs font-bold text-white">Write / Upload</span>
+                        </div>
+                        <input type="checkbox" id="permUpload" class="w-5 h-5 rounded-lg bg-white/5 border-white/10 text-tech-blue focus:ring-tech-blue/50 focus:ring-offset-0">
+                    </div>
+                    <div class="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group hover:border-tech-blue/30 transition-all">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500">
+                                <i class="fas fa-trash-alt text-xs"></i>
+                            </div>
+                            <span class="text-xs font-bold text-white">Delete Authority</span>
+                        </div>
+                        <input type="checkbox" id="permDelete" class="w-5 h-5 rounded-lg bg-white/5 border-white/10 text-tech-blue focus:ring-tech-blue/50 focus:ring-offset-0">
+                    </div>
+                    <div class="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group hover:border-tech-blue/30 transition-all">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
+                                <i class="fas fa-users-viewfinder text-xs"></i>
+                            </div>
+                            <span class="text-xs font-bold text-white">Monitor Others</span>
+                        </div>
+                        <input type="checkbox" id="permSeeOthers" class="w-5 h-5 rounded-lg bg-white/5 border-white/10 text-tech-blue focus:ring-tech-blue/50 focus:ring-offset-0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monitoring Config -->
+            <button id="configAccessBtn" onclick="openAccessManagement()" class="w-full flex items-center justify-between p-5 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-tech-blue/30 rounded-[2rem] transition-all group active:scale-[0.98]">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-tech-blue/10 flex items-center justify-center text-tech-blue group-hover:scale-110 transition-transform">
+                        <i class="fas fa-user-friends"></i>
+                    </div>
+                    <div class="text-left">
+                        <div class="text-xs font-black text-white uppercase tracking-widest">Configure Node Access</div>
+                        <div id="permittedUsersCount" class="text-[10px] text-slate-500 font-bold mt-1">Select users allowed for monitoring</div>
+                    </div>
+                </div>
+                <i class="fas fa-chevron-right text-slate-600 group-hover:text-tech-blue group-hover:translate-x-1 transition-all"></i>
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-8 bg-white/[0.02] border-t border-white/5 flex gap-4">
+            <button onclick="closeEditUserModal()" class="flex-1 px-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-all border border-white/5">
+                Cancel
+            </button>
+            <button id="saveUserBtn" class="flex-[2] px-8 py-4 rounded-2xl bg-tech-blue hover:bg-blue-600 text-white text-sm font-bold transition-all shadow-lg shadow-tech-blue/30 active:scale-[0.98]">
+                Save Configuration
+            </button>
+        </div>
+    </div>
+</div>

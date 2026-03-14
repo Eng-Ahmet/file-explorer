@@ -9,6 +9,7 @@ export interface IFile extends Document {
   path: string;
   folderId: mongoose.Types.ObjectId | null;
   uploadedBy: mongoose.Types.ObjectId;
+  sharedWith: mongoose.Types.ObjectId[];
   uploadDate: Date;
 }
 
@@ -21,6 +22,7 @@ const FileSchema: Schema = new Schema({
   path: { type: String, required: true },
   folderId: { type: Schema.Types.ObjectId, ref: 'Folder', default: null },
   uploadedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  sharedWith: [{ type: Schema.Types.ObjectId, ref: 'User', default: [] }],
   uploadDate: { type: Date, default: Date.now }
 });
 

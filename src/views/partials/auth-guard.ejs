@@ -1,0 +1,42 @@
+<% const requireAdmin = locals.requireAdmin || false; %>
+<!-- Auth Configuration -->
+<script id="auth-config" type="application/json">
+    { "requireAdmin": <%= requireAdmin %> }
+</script>
+
+<script>
+    (function() {
+        // Load configuration from the JSON element above
+        const configEl = document.getElementById('auth-config');
+        const config = configEl ? JSON.parse(configEl.textContent) : { requireAdmin: false };
+        const isAdminRequired = config.requireAdmin;
+
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        
+        if (!token || !user) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        // Admin access control
+        if (isAdminRequired && user.role !== 'admin') {
+            window.location.href = '/files';
+            return;
+        }
+
+        // Display user information
+        window.addEventListener('DOMContentLoaded', () => {
+            const userNameEl = document.getElementById('userName');
+            const userRoleEl = document.getElementById('userRole');
+            if (userNameEl && user.username) userNameEl.textContent = user.username;
+            if (userRoleEl && user.role) userRoleEl.textContent = user.role.toUpperCase();
+        });
+    })();
+
+    function logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+    }
+</script>

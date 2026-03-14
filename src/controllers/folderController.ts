@@ -9,6 +9,24 @@ import path from 'path';
 
 import { getFolderPath } from '../utils/pathHelper.js';
 import { logActivity } from '../utils/logger.js';
+import { deleteFolderRecursiveInternal } from '../utils/deleteHelper.js';
+import { updateNestedFilePaths } from '../utils/moveHelper.js';
+
+async function hasAccess(folderId: string | mongoose.Types.ObjectId | null | undefined, userId: string): Promise<boolean> {
+  if (!folderId || folderId === 'null') return true;
+  const folder = await Folder.findById(folderId);
+  if (!folder) return false;
+
+  if (folder.createdBy.toString() === userId || (folder.sharedWith && folder.sharedWith.some(id => id.toString() === userId))) {
+    return true;
+  }
+
+  if (folder.parentId) {
+    return hasAccess(folder.parentId, userId);
+  }
+
+  return false;
+}
 
 export const getFolders = async (req: AuthRequest, res: Response) => {
   const userId = req.user?.id;
@@ -28,18 +46,30 @@ export const getFolders = async (req: AuthRequest, res: Response) => {
       query.parentId = parentId === 'null' ? null : parentId;
     }
     
-    // If user is not admin and cannot see others' files, only show their own folders
+    // If user is not admin and cannot see others' files, strictly check access
     if (role !== 'admin') {
-      if (user.permissions.canSeeOthersFiles) {
-        if (user.permissions.permittedUsers && user.permissions.permittedUsers.length > 0) {
-          // Can see their own + specific permitted users
-          query.createdBy = { $in: [userId, ...user.permissions.permittedUsers] };
-        } else {
-          // If toggle is ON but list is empty, assume "See All"
+      if (user.permissions.canSeeOthersFiles && user.permissions.permittedUsers?.length > 0) {
+        // Limited global visibility (e.g. Monitoring)
+        query.createdBy = { $in: [userId, ...user.permissions.permittedUsers.map(id => id.toString())] };
+      } else if (!user.permissions.canSeeOthersFiles) {
+        // If parentId is NOT provided, the client expects "all accessible items" (recursive)
+        if (query.parentId === undefined) {
+          const allFolders = await Folder.find({}).populate('createdBy', 'email username');
+          const accessibleFolders = [];
+          for (const folder of allFolders) {
+            if (await hasAccess(folder._id, userId as string)) {
+              accessibleFolders.push(folder);
+            }
+          }
+          return res.json(accessibleFolders);
         }
-      } else {
-        // Can only see their own
-        query.createdBy = userId;
+
+        // Looking inside a folder, verify inheritance
+        const authorized = await hasAccess(query.parentId, userId as string);
+        if (!authorized) {
+          return res.json([]); // Or 403, but empty array is safer for UX
+        }
+        // If authorized, we just filter by parentId (already in query)
       }
     }
 
@@ -66,6 +96,12 @@ export const createFolder = async (req: AuthRequest, res: Response) => {
     }
 
     let effectiveParentId = parentId || null;
+    if (effectiveParentId && role !== 'admin') {
+      const authorized = await hasAccess(effectiveParentId, userId as string);
+      if (!authorized) {
+        return res.status(403).json({ message: 'You do not have permission to create folders here' });
+      }
+    }
     if (!effectiveParentId && role !== 'admin') {
       const rootFolder = await Folder.findOne({ createdBy: userId, parentId: null });
       if (rootFolder) effectiveParentId = rootFolder._id.toString();
@@ -122,11 +158,32 @@ export const renameFolder = async (req: AuthRequest, res: Response) => {
     }
 
     const oldName = folderToUpdate.name;
+    const ownerRecord = await User.findById(folderToUpdate.createdBy);
+    const ownerEmail = ownerRecord?.email || (await User.findById(userId))?.email || '';
+
+    // Capture old physical path
+    const oldPath = await getFolderPath(id, ownerEmail);
+
     const folder = await Folder.findByIdAndUpdate(id, { name }, { new: true });
     if (!folder) return res.status(404).json({ message: 'Folder not found' });
 
+    // Capture new physical path
+    const newPath = await getFolderPath(id, ownerEmail);
+
+    // Physically rename directory
+    if (fs.existsSync(oldPath) && oldPath !== newPath) {
+        try {
+            fs.renameSync(oldPath, newPath);
+        } catch (err) {
+            console.error(`Folder rename failed physically: ${oldPath} -> ${newPath}`, err);
+        }
+    }
+
+    // Recursively update all file path strings in DB
+    await updateNestedFilePaths(id, ownerEmail);
+
     // Log Activity
-    await logActivity(userId as any, user.username, 'RENAME_FOLDER', `Renamed folder from ${oldName} to ${name}`, req);
+    await logActivity(userId as any, ownerRecord?.username || 'System', 'RENAME_FOLDER', `Renamed folder from ${oldName} to ${name}`, req);
 
     res.json(folder);
   } catch (err) {
@@ -160,21 +217,51 @@ export const deleteFolder = async (req: AuthRequest, res: Response) => {
     const folderPath = await getFolderPath(id, ownerEmail);
     const folderName = folder.name;
 
-    // Recursively delete from DB (simplified for now but targeting the folder's files/subfolders)
-    await File.deleteMany({ folderId: id as any });
-    
-    // Physical deletion
-    if (fs.existsSync(folderPath)) {
-      fs.rmSync(folderPath, { recursive: true, force: true });
-    }
-
-    await Folder.findByIdAndDelete(id);
+    // Use centralized recursive deletion helper
+    const deletedCount = await deleteFolderRecursiveInternal(id, userId as string, role as string);
 
     // Log Activity
-    await logActivity(userId as any, user.username, 'DELETE_FOLDER', `Deleted folder: ${folderName}`, req);
+    await logActivity(userId as any, user.username, 'DELETE_FOLDER', `Deleted folder: ${folderName} (Total items removed: ${deletedCount})`, req);
 
-    res.json({ message: 'Folder and its physical contents deleted' });
+    res.json({ message: 'Folder and its contents deleted', deletedCount });
   } catch (err) {
     res.status(500).json({ message: 'Error deleting folder', error: err });
+  }
+};
+
+export const shareFolder = async (req: AuthRequest, res: Response) => {
+  const { folderId, userIds } = req.body;
+  const adminId = req.user?.id;
+
+  try {
+    const folder = await Folder.findById(folderId);
+    if (!folder) return res.status(404).json({ message: 'Folder not found' });
+
+    // Validate user IDs
+    const validUsers = await User.find({ _id: { $in: userIds } });
+    const validUserIds = validUsers.map(u => u._id);
+
+    folder.sharedWith = validUserIds as any;
+    await folder.save();
+
+    res.json({ message: 'Folder shared successfully', sharedWith: validUserIds });
+  } catch (err) {
+    res.status(500).json({ message: 'Error sharing folder', error: err });
+  }
+};
+
+export const revokeFolderAccess = async (req: AuthRequest, res: Response) => {
+  const { folderId, userId } = req.body;
+
+  try {
+    const folder = await Folder.findById(folderId);
+    if (!folder) return res.status(404).json({ message: 'Folder not found' });
+
+    folder.sharedWith = folder.sharedWith.filter(id => id.toString() !== userId) as any;
+    await folder.save();
+
+    res.json({ message: 'Access revoked successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error revoking access', error: err });
   }
 };

@@ -1,0 +1,30 @@
+<div class="p-6 flex flex-wrap gap-4 items-center justify-between">
+    <div class="relative flex-1 max-w-md">
+        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+        <input type="text" id="search-input" placeholder="Search your technology files..."
+            class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-tech-blue/50 focus:border-tech-blue transition-all text-sm placeholder:text-slate-500">
+    </div>
+
+    <div class="flex gap-2">
+        <div class="flex bg-white/5 border border-white/10 p-1 rounded-xl">
+            <button class="px-3 py-1.5 rounded-lg text-sm transition-all hover:text-white text-white active bg-white/10"
+                id="gridViewBtn" title="Grid View">
+                <i class="fas fa-grip"></i>
+            </button>
+            <button class="px-3 py-1.5 rounded-lg text-sm transition-all hover:text-white text-slate-400"
+                id="listViewBtn" title="List View">
+                <i class="fas fa-list"></i>
+            </button>
+        </div>
+
+        <div class="flex bg-white/5 border border-white/10 p-1 rounded-xl">
+            <button
+                class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all hover:text-white text-slate-400 active bg-white/10 text-white"
+                data-filter="all">All</button>
+            <button class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all hover:text-white text-slate-400"
+                data-filter="md">Markdown</button>
+            <button class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all hover:text-white text-slate-400"
+                data-filter="pdf">PDF</button>
+        </div>
+    </div>
+</div>

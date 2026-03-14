@@ -27,5 +27,8 @@ router.get('/view/:id', fileController.viewFile);
 router.get('/download/:id', fileController.downloadFile);
 router.post('/create', fileController.createFile);
 router.put('/:id/content', fileController.updateFileContent);
+router.post('/share', fileController.shareFile);
+router.post('/revoke', fileController.revokeFileAccess);
+router.post('/bulk-download', fileController.bulkDownloadFiles);
 
 export default router;

@@ -7,6 +7,7 @@ class App {
     this.expandedFolders = new Set();
     this.currentViewMode = 'grid'; // 'grid' | 'list'
     this.selectedItems = new Set();
+    this.clipboard = { items: [], type: null }; // { items: string[], type: 'copy' | 'move' }
     this.init();
   }
 
@@ -26,14 +27,15 @@ class App {
 
     if (this.fileManager.token && this.fileManager.user) {
       userSection.innerHTML = `
-        <div class="flex items-center gap-2 md:gap-3">
-          <div class="hidden sm:flex flex-col items-end">
-            <span class="text-xs font-bold text-white leading-none">${this.fileManager.user.username}</span>
-            <span class="text-[10px] text-brand-400 uppercase tracking-wider font-bold">${this.fileManager.user.role}</span>
-          </div>
-          <button id="logoutBtn" class="w-9 h-9 md:w-10 md:h-10 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-rose-400 rounded-xl transition-all flex items-center justify-center">
-            <i class="fas fa-power-off"></i>
-          </button>
+        <div class="flex items-center gap-4 border-l border-white/5 pl-8 h-8">
+            <div class="hidden sm:flex flex-col items-end">
+                <span id="userName" class="text-[11px] font-bold text-slate-100 uppercase tracking-wide">${this.fileManager.user.username}</span>
+                <span id="userRole" class="text-[9px] font-black text-tech-blue uppercase tracking-[0.2em] mt-1.5 opacity-80">${this.fileManager.user.role}</span>
+            </div>
+            
+            <button id="logoutBtn" class="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-rose-500 transition-all cursor-pointer hover:bg-rose-500/5 rounded-lg" title="Terminate Session">
+                <i class="fas fa-power-off text-sm"></i>
+            </button>
         </div>
       `;
       document.getElementById('logoutBtn').addEventListener('click', () => {
@@ -42,9 +44,17 @@ class App {
       });
 
       if (uploadBtn) uploadBtn.style.display = 'flex';
-      if (adminBtn) {
-          adminBtn.style.display = (this.fileManager.user.role === 'admin') ? 'flex' : 'none';
+      const navDashboard = document.getElementById('navDashboard');
+      if (navDashboard) {
+          navDashboard.classList.toggle('hidden', this.fileManager.user.role !== 'admin');
+          navDashboard.classList.toggle('flex', this.fileManager.user.role === 'admin');
       }
+
+      // Handle active state client-side
+      const path = window.location.pathname;
+      if (path.includes('/admin')) document.getElementById('navDashboard')?.classList.add('active');
+      if (path.includes('/files')) document.getElementById('navExplorer')?.classList.add('active');
+      if (path.includes('/projects')) document.getElementById('navProjects')?.classList.add('active');
     } else {
       userSection.innerHTML = `
         <a href="/login" class="text-sm font-medium hover:text-brand-400 transition-colors">Sign In</a>
@@ -65,6 +75,7 @@ class App {
 
       // If user is at the system root, automatically enter their personal root folder
       if (this.currentFolderId === null) {
+        /* 
         const myRoot = this.fileManager.folders.find(f => f.parentId === null && (this.fileManager.user.role === 'admin' ? true : true));
         // Actually, for normal users, they only see their own folders, so parentId null is their root.
         // For admin, we DON'T redirect, they stay at system root to see all user directories.
@@ -72,6 +83,7 @@ class App {
             const root = this.fileManager.folders.find(f => f.parentId === null);
             if (root) this.currentFolderId = root._id;
         }
+        */
       }
 
       this.renderFiles();
@@ -174,13 +186,18 @@ class App {
 
     // Bulk Actions
     const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
-    if (bulkDeleteBtn) bulkDeleteBtn.addEventListener('click', () => this.handleBulkDelete());
-    
-    const bulkMoveBtn = document.getElementById('bulkMoveBtn');
-    if (bulkMoveBtn) bulkMoveBtn.addEventListener('click', () => this.handleBulkMove());
+    document.getElementById('bulkDeleteBtn')?.addEventListener('click', () => this.handleBulkDelete());
+    document.getElementById('bulkDownloadBtn')?.addEventListener('click', () => this.handleBulkDownload());
+    document.getElementById('bulkMoveBtn')?.addEventListener('click', () => this.handleBulkMove());
 
     const bulkCopyBtn = document.getElementById('bulkCopyBtn');
     if (bulkCopyBtn) bulkCopyBtn.addEventListener('click', () => this.handleBulkCopy());
+
+    const bulkPasteBtn = document.getElementById('bulkPasteBtn');
+    if (bulkPasteBtn) bulkPasteBtn.addEventListener('click', () => this.handlePaste());
+
+    const bulkShareBtn = document.getElementById('bulkShareBtn');
+    if (bulkShareBtn) bulkShareBtn.addEventListener('click', () => this.handleBulkShare());
 
     // Mobile Sidebar Toggle
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
@@ -241,6 +258,74 @@ class App {
     if (storageBtn) storageBtn.addEventListener('click', () => toggleStorageModal(true));
     if (closeStorageModal) closeStorageModal.addEventListener('click', () => toggleStorageModal(false));
     if (storageOverlay) storageOverlay.addEventListener('click', () => toggleStorageModal(false));
+
+    // Clipboard Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Skip if user is typing in an input/textarea
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+        if (e.ctrlKey || e.metaKey) {
+            switch (e.key.toLowerCase()) {
+                case 'c':
+                    if (this.selectedItems.size > 0) {
+                        e.preventDefault();
+                        this.handleClipboardAction('copy');
+                    }
+                    break;
+                case 'x':
+                    if (this.selectedItems.size > 0) {
+                        e.preventDefault();
+                        this.handleClipboardAction('move');
+                    }
+                    break;
+                case 'v':
+                    e.preventDefault();
+                    this.handlePaste();
+                    break;
+            }
+        }
+    });
+  }
+
+  handleClipboardAction(type) {
+    if (this.selectedItems.size === 0) return;
+    this.clipboard = {
+        items: Array.from(this.selectedItems),
+        type: type
+    };
+    const count = this.clipboard.items.length;
+    const msg = type === 'copy' ? `Copied ${count} items` : `Cut ${count} items`;
+    this.showToast(msg, "Navigate to destination and press Ctrl+V", "brand");
+    this.updateBulkActionBar(); // Trigger UI update for Paste button
+  }
+
+  async handlePaste() {
+    if (!this.clipboard.items.length) {
+        this.showToast("Clipboard Empty", "Copy or cut items first", "info");
+        return;
+    }
+
+    const { items, type } = this.clipboard;
+    const targetFolderId = this.currentFolderId;
+
+    try {
+        this.showToast(type === 'copy' ? "Copying..." : "Moving...", `Syncing ${items.length} items to current directory`, "brand");
+        
+        if (type === 'copy') {
+            await this.fileManager.copyFiles(items, targetFolderId);
+        } else {
+            await this.fileManager.moveFiles(items, targetFolderId);
+            // Clear clipboard after move as items might no longer exist at source
+            this.clipboard = { items: [], type: null };
+        }
+
+        this.selectedItems.clear();
+        await this.loadData();
+        this.showToast("Success", `Finished processing ${items.length} items`, "success");
+        this.updateBulkActionBar(); // Refresh bar state
+    } catch (error) {
+        this.showToast("Paste Failed", error.message, "error");
+    }
   }
 
   async handleFileSelect(event) {
@@ -291,13 +376,27 @@ class App {
 
     // Folder Context Filtering
     const currentIdStr = this.currentFolderId ? this.currentFolderId.toString() : null;
+    const userId = this.fileManager.user ? (this.fileManager.user._id || this.fileManager.user.id) : null;
+
     files = files.filter(f => {
       const fId = f.folderId ? f.folderId.toString() : null;
+      if (currentIdStr === null) {
+        // At root, show if it's explicitly shared with me OR owned by me at root
+        const isSharedWithMe = f.sharedWith && f.sharedWith.some(id => (id._id || id || id.toString()) === userId);
+        const isOwnedAtRoot = fId === null && (f.uploadedBy?._id || f.uploadedBy || '').toString() === userId;
+        return isOwnedAtRoot || isSharedWithMe;
+      }
       return fId === currentIdStr;
     });
 
     folders = folders.filter(f => {
       const fParentId = f.parentId ? f.parentId.toString() : null;
+      if (currentIdStr === null) {
+        // At root, show if it's explicitly shared with me OR owned by me at root
+        const isSharedWithMe = f.sharedWith && f.sharedWith.some(id => (id._id || id || id.toString()) === userId);
+        const isOwnedAtRoot = fParentId === null && (f.createdBy?._id || f.createdBy || '').toString() === userId;
+        return isOwnedAtRoot || isSharedWithMe;
+      }
       return fParentId === currentIdStr;
     });
 
@@ -378,32 +477,31 @@ class App {
     const displayName = (this.fileManager.user.role === 'admin' && !folder.parentId && folder.createdBy?.email) ? folder.createdBy.email : folder.name;
     
     return `
-      <div class="glass glass-hover p-4 md:p-5 rounded-2xl md:rounded-[2.5rem] transition-all duration-300 animate-fade-in group relative shadow-lg cursor-pointer folder-grid-item ${isSelected ? 'ring-2 ring-tech-blue bg-tech-blue/5' : 'hover:bg-white/[0.02]'}" data-id="${folder._id}">
-        <div class="flex items-start justify-between mb-4 md:mb-6">
-            <div class="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center bg-amber-500/10 text-amber-500 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                <i class="fas fa-folder text-xl md:text-3xl"></i>
+      <div class="tech-card p-5 rounded-3xl transition-all duration-500 animate-fade-in group cursor-pointer folder-grid-item ${isSelected ? 'ring-2 ring-tech-blue bg-tech-blue/5' : 'hover:scale-[1.02] shadow-xl'}" data-id="${folder._id}">
+        <div class="flex items-start justify-between mb-6">
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center bg-amber-500/10 text-amber-500 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                <i class="fas fa-folder text-3xl"></i>
             </div>
             <div class="flex items-center gap-2">
-                <input type="checkbox" class="w-4 h-4 md:w-5 md:h-5 rounded-lg border-white/10 bg-white/5 text-tech-blue focus:ring-tech-blue item-checkbox cursor-pointer transition-all" data-id="${folder._id}" ${isSelected ? 'checked' : ''}>
-                <div class="hidden md:flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                <input type="checkbox" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-tech-blue focus:ring-tech-blue item-checkbox cursor-pointer transition-all" data-id="${folder._id}" ${isSelected ? 'checked' : ''}>
+                <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
                     <button class="w-9 h-9 rounded-xl bg-white/5 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center delete-folder-btn border border-white/5 hover:border-rose-500/30 transition-all" data-id="${folder._id}" title="Delete">
                         <i class="fas fa-trash-can text-xs"></i>
                     </button>
                 </div>
             </div>
         </div>
-        <div class="space-y-0.5 md:space-y-1">
-            <h3 class="font-bold text-slate-100 truncate pr-2 text-sm md:text-base group-hover:text-white transition-colors">${displayName}</h3>
-            <div class="flex items-center gap-1.5 md:gap-2">
-                <span class="text-[8px] md:text-[10px] text-slate-500 uppercase font-extrabold tracking-[0.1em] md:tracking-[0.2em]">Folder</span>
-                <span class="w-0.5 h-0.5 md:w-1 md:h-1 rounded-full bg-slate-700"></span>
-                <span class="text-[8px] md:text-[10px] text-slate-600 font-bold italic opacity-60 truncate">System</span>
+        <div class="space-y-1">
+            <h3 class="font-bold text-slate-100 truncate pr-2 text-base group-hover:text-white transition-colors">${displayName}</h3>
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] text-slate-500 uppercase font-black tracking-widest">Directory</span>
+                <span class="w-1 h-1 rounded-full bg-slate-700"></span>
+                <span class="text-[10px] text-slate-600 font-bold italic opacity-60">System Node</span>
             </div>
         </div>
         
-        <!-- Decoration (Desktop only) -->
-        <div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-20 transition-opacity hidden md:block">
-            <i class="fas fa-folder-open text-4xl text-white"></i>
+        <div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-20 transition-opacity">
+            <i class="fas fa-network-wired text-4xl text-white"></i>
         </div>
       </div>
     `;
@@ -438,7 +536,18 @@ class App {
     const folders = this.fileManager.folders;
 
     const buildTree = (parentId = null, level = 0) => {
-      const branchFolders = folders.filter(f => f.parentId === parentId);
+      const userId = this.fileManager.user ? (this.fileManager.user._id || this.fileManager.user.id) : null;
+      
+      const branchFolders = folders.filter(f => {
+          const fParentId = f.parentId ? f.parentId.toString() : null;
+          if (parentId === null) {
+              if (this.fileManager.user.role === 'admin') return fParentId === null;
+              const isSharedWithMe = f.sharedWith && f.sharedWith.some(id => (id._id || id || id.toString()) === userId);
+              const isOwnedAtRoot = fParentId === null && (f.createdBy?._id || f.createdBy || '').toString() === userId;
+              return isOwnedAtRoot || isSharedWithMe;
+          }
+          return fParentId === parentId;
+      });
       const branchFiles = this.fileManager.files.filter(f => {
         const fId = f.folderId ? f.folderId.toString() : null;
         const pId = parentId ? parentId.toString() : null;
@@ -542,24 +651,24 @@ class App {
     
     if (isListView) {
         return `
-          <div class="glass glass-hover px-4 py-3 rounded-xl transition-all animate-fade-in group flex items-center gap-4 cursor-pointer ${isSelected ? 'bg-tech-blue/5 border-tech-blue/30' : ''}">
-            <input type="checkbox" class="w-5 h-5 rounded border-white/10 bg-white/5 text-tech-blue focus:ring-tech-blue item-checkbox" data-id="${file._id}" ${isSelected ? 'checked' : ''}>
-            <div class="w-10 h-10 rounded-lg flex items-center justify-center ${isPdf ? 'bg-rose-500/10 text-rose-400' : 'bg-brand-500/10 text-brand-400'}">
-                <i class="fas ${isPdf ? 'fa-file-pdf' : 'fa-file-lines'} text-lg"></i>
+          <div class="glass glass-hover px-5 py-4 rounded-2xl transition-all animate-fade-in group flex items-center gap-4 cursor-pointer ${isSelected ? 'bg-tech-blue/5 border-tech-blue/30' : ''}">
+            <input type="checkbox" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-tech-blue focus:ring-tech-blue item-checkbox" data-id="${file._id}" ${isSelected ? 'checked' : ''}>
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center ${isPdf ? 'bg-rose-500/10 text-rose-400' : 'bg-tech-blue/10 text-tech-blue'} border border-white/5 shadow-inner">
+                <i class="fas ${isPdf ? 'fa-file-pdf' : 'fa-file-lines'} text-xl"></i>
             </div>
             <div class="flex-1 min-w-0">
-                <h3 class="font-bold text-slate-200 truncate view-btn" data-id="${file._id}">${file.displayName}</h3>
+                <h3 class="font-bold text-slate-100 truncate view-btn text-sm" data-id="${file._id}">${file.displayName}</h3>
+                <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">${file.type} Document</p>
             </div>
-            <div class="w-24 px-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest">${this.formatSize(file.size)}</div>
-            <div class="w-24 px-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest">${file.type}</div>
-            <div class="w-32 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button class="w-8 h-8 rounded-lg bg-white/5 hover:bg-tech-blue/20 text-tech-blue flex items-center justify-center view-btn" data-id="${file._id}" title="View">
+            <div class="w-24 px-4 text-[10px] text-slate-500 font-black uppercase tracking-widest">${this.formatSize(file.size)}</div>
+            <div class="w-32 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                <button class="w-9 h-9 rounded-xl bg-white/5 hover:bg-tech-blue/20 text-tech-blue flex items-center justify-center view-btn border border-white/5" data-id="${file._id}" title="View">
                     <i class="fas fa-eye text-xs"></i>
                 </button>
-                <button class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center download-btn" data-id="${file._id}" title="Download">
+                <button class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 flex items-center justify-center download-btn border border-white/5" data-id="${file._id}" title="Download">
                     <i class="fas fa-download text-xs"></i>
                 </button>
-                <button class="w-8 h-8 rounded-lg bg-white/5 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center delete-btn" data-id="${file._id}" title="Delete">
+                <button class="w-9 h-9 rounded-xl bg-white/5 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center delete-btn border border-white/5" data-id="${file._id}" title="Delete">
                     <i class="fas fa-trash-can text-xs"></i>
                 </button>
             </div>
@@ -568,38 +677,31 @@ class App {
     }
 
     return `
-      <div class="glass glass-hover p-4 md:p-5 rounded-2xl md:rounded-[2.5rem] transition-all duration-300 animate-fade-in group relative shadow-lg ${isSelected ? 'ring-2 ring-tech-blue bg-tech-blue/5' : 'hover:bg-white/[0.02]'}">
-        <div class="flex items-start justify-between mb-4 md:mb-6">
-            <div class="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center ${isPdf ? 'bg-rose-500/10 text-rose-400' : 'bg-brand-500/10 text-brand-400'} shadow-inner group-hover:scale-110 transition-transform duration-500">
-                <i class="fas ${isPdf ? 'fa-file-pdf' : 'fa-file-lines'} text-xl md:text-3xl"></i>
+      <div class="tech-card p-5 rounded-3xl transition-all duration-500 animate-fade-in group relative shadow-lg ${isSelected ? 'ring-2 ring-tech-blue bg-tech-blue/5' : 'hover:scale-[1.02]'}">
+        <div class="flex items-start justify-between mb-6">
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center ${isPdf ? 'bg-rose-500/10 text-rose-400' : 'bg-tech-blue/10 text-tech-blue'} shadow-inner group-hover:scale-110 transition-transform duration-500">
+                <i class="fas ${isPdf ? 'fa-file-pdf' : 'fa-file-lines'} text-3xl"></i>
             </div>
             <div class="flex items-center gap-2">
-                <input type="checkbox" class="w-4 h-4 md:w-5 md:h-5 rounded-lg border-white/10 bg-white/5 text-tech-blue focus:ring-tech-blue item-checkbox cursor-pointer transition-all" data-id="${file._id}" ${isSelected ? 'checked' : ''}>
-                <div class="hidden md:flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                <input type="checkbox" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-tech-blue focus:ring-tech-blue item-checkbox cursor-pointer transition-all" data-id="${file._id}" ${isSelected ? 'checked' : ''}>
+                <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
                     <button class="w-9 h-9 rounded-xl bg-white/5 hover:bg-tech-blue/20 text-tech-blue flex items-center justify-center view-btn border border-white/5 hover:border-tech-blue/30 transition-all" data-id="${file._id}" title="View">
                         <i class="fas fa-eye text-xs"></i>
-                    </button>
-                    <button class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center download-btn border border-white/5 transition-all" data-id="${file._id}" title="Download">
-                        <i class="fas fa-download text-xs"></i>
-                    </button>
-                    <button class="w-9 h-9 rounded-xl bg-white/5 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center delete-btn border border-white/5 hover:border-rose-500/30 transition-all" data-id="${file._id}" title="Delete">
-                        <i class="fas fa-trash-can text-xs"></i>
                     </button>
                 </div>
             </div>
         </div>
-        <div class="space-y-0.5 md:space-y-1">
-            <h3 class="font-bold text-slate-100 truncate pr-2 cursor-pointer view-btn text-sm md:text-base group-hover:text-white transition-colors" data-id="${file._id}">${file.displayName}</h3>
-            <div class="flex items-center gap-1.5 md:gap-2">
-                <span class="text-[8px] md:text-[10px] text-slate-500 uppercase font-extrabold tracking-[0.1em] md:tracking-[0.2em]">${file.type}</span>
-                <span class="w-0.5 h-0.5 md:w-1 md:h-1 rounded-full bg-slate-700"></span>
-                <span class="text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest">${this.formatSize(file.size)}</span>
+        <div class="space-y-1">
+            <h3 class="font-bold text-slate-100 truncate pr-2 cursor-pointer view-btn text-base group-hover:text-white transition-colors" data-id="${file._id}">${file.displayName}</h3>
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] text-slate-500 uppercase font-black tracking-widest">${file.type}</span>
+                <span class="w-1 h-1 rounded-full bg-slate-700"></span>
+                <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">${this.formatSize(file.size)}</span>
             </div>
         </div>
         
-        <!-- Decoration (Desktop only) -->
-        <div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-10 transition-opacity hidden md:block">
-            <i class="fas ${isPdf ? 'fa-file-pdf' : 'fa-file-code'} text-5xl text-white"></i>
+        <div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-10 transition-opacity">
+            <i class="fas ${isPdf ? 'fa-file-pdf' : 'fa-terminal'} text-5xl text-white"></i>
         </div>
       </div>
     `;
@@ -716,14 +818,45 @@ class App {
   updateBulkActionBar() {
     const bar = document.getElementById('bulkActionBar');
     const countEl = document.getElementById('selectedCount');
+    const pasteBtn = document.getElementById('bulkPasteBtn');
+    const moveBtn = document.getElementById('bulkMoveBtn');
+    const copyBtn = document.getElementById('bulkCopyBtn');
+    const deleteBtn = document.getElementById('bulkDeleteBtn');
+    const downloadBtn = document.getElementById('bulkDownloadBtn');
+    const countSection = countEl?.parentElement;
+
     if (!bar || !countEl) return;
 
     const count = this.selectedItems.size;
+    const hasClipboard = this.clipboard.items.length > 0;
+    
     countEl.textContent = count;
 
-    if (count > 0) {
+    // Show bar if something is selected OR something is in clipboard
+    if (count > 0 || hasClipboard) {
         bar.classList.remove('translate-y-32', 'opacity-0', 'pointer-events-none');
         bar.classList.add('translate-y-0', 'opacity-100');
+        
+        // Contextual buttons
+        if (moveBtn) moveBtn.classList.toggle('hidden', count === 0);
+        if (copyBtn) copyBtn.classList.toggle('hidden', count === 0);
+        if (deleteBtn) deleteBtn.classList.toggle('hidden', count === 0);
+        if (downloadBtn) downloadBtn.classList.toggle('hidden', count === 0);
+        if (countSection) countSection.classList.toggle('hidden', count === 0);
+        
+        if (pasteBtn) {
+            pasteBtn.classList.toggle('hidden', !hasClipboard);
+            if (hasClipboard) {
+                pasteBtn.querySelector('span').textContent = `Paste (${this.clipboard.items.length})`;
+            }
+        }
+
+        const shareBtn = document.getElementById('bulkShareBtn');
+        if (shareBtn) {
+            const isAdmin = this.fileManager.user && this.fileManager.user.role === 'admin';
+            shareBtn.classList.toggle('hidden', count === 0 || !isAdmin);
+            shareBtn.classList.toggle('flex', count > 0 && isAdmin);
+        }
     } else {
         bar.classList.add('translate-y-32', 'opacity-0', 'pointer-events-none');
         bar.classList.remove('translate-y-0', 'opacity-100');
@@ -734,10 +867,10 @@ class App {
     if (this.selectedItems.size === 0) return;
     if (confirm(`Delete ${this.selectedItems.size} items permanently?`)) {
         try {
-            await this.fileManager.bulkDelete(Array.from(this.selectedItems));
+            const result = await this.fileManager.bulkDelete(Array.from(this.selectedItems));
             this.selectedItems.clear();
             await this.loadData();
-            this.showToast("Bulk Delete", "Items removed successfully", "success");
+            this.showToast("Bulk Delete", result.message || "Items removed successfully", "success");
         } catch (error) {
             this.showToast("Bulk Delete Failed", error.message, "error");
         }
@@ -746,39 +879,68 @@ class App {
 
   async handleBulkMove() {
     if (this.selectedItems.size === 0) return;
-    // For simplicity, we'll ask for target folder ID or use a prompt.
-    // In a real app, you'd show a folder picker modal.
-    // Here we'll just show folders in a prompt for now.
-    const folderList = this.fileManager.folders.map(f => `${f.name} (ID: ${f._id})`).join('\n');
-    const targetFolderId = prompt(`Enter Target Folder ID:\n\n${folderList}\n\n(Leave empty for Root)`);
-    
-    if (targetFolderId !== null) {
-        try {
-            await this.fileManager.moveFiles(Array.from(this.selectedItems), targetFolderId || null);
-            this.selectedItems.clear();
-            await this.loadData();
-            this.showToast("Bulk Move", "Items relocated", "success");
-        } catch (error) {
-            this.showToast("Move Failed", error.message, "error");
-        }
-    }
+    this.handleClipboardAction('move');
+    this.showToast("Prepared for Move", "Navigate to target folder and press Ctrl+V", "brand");
   }
 
   async handleBulkCopy() {
     if (this.selectedItems.size === 0) return;
-    const folderList = this.fileManager.folders.map(f => `${f.name} (ID: ${f._id})`).join('\n');
-    const targetFolderId = prompt(`Enter Target Folder ID for Copy:\n\n${folderList}\n\n(Leave empty for Root)`);
+    this.handleClipboardAction('copy');
+    this.showToast("Prepared for Copy", "Navigate to target folder and press Ctrl+V", "brand");
+  }
+
+  async handleBulkDownload() {
+    if (this.selectedItems.size === 0) return;
+    try {
+        this.showToast("Packaging", "Generating ZIP archive...", "brand");
+        const blob = await this.fileManager.bulkDownload(Array.from(this.selectedItems));
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `hwai-bundle-${Date.now()}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        this.showToast("Success", "Download started", "success");
+    } catch (error) {
+        this.showToast("Download Failed", error.message, "error");
+    }
+  }
+
+  async handleBulkShare() {
+    if (this.selectedItems.size === 0) return;
     
-    if (targetFolderId !== null) {
+    // Load users if not already loaded
+    if (!window.allUsers) {
         try {
-            await this.fileManager.copyFiles(Array.from(this.selectedItems), targetFolderId || null);
-            this.selectedItems.clear();
-            await this.loadData();
-            this.showToast("Bulk Copy", "Items duplicated", "success");
+            window.allUsers = await this.fileManager.loadAllUsers();
         } catch (error) {
-            this.showToast("Copy Failed", error.message, "error");
+            this.showToast("Permission Error", "Only admins can manage global sharing", "error");
+            return;
         }
     }
+
+    this.tempSharedUserIds = [];
+    this.currentSharingItems = Array.from(this.selectedItems);
+    
+    document.getElementById('shareItemSubtitle').textContent = `Sharing ${this.currentSharingItems.length} selected items`;
+    
+    // Determine common collaborators if multiple items
+    this.activeCollaborators = [];
+    if (this.currentSharingItems.length === 1) {
+        const itemId = this.currentSharingItems[0];
+        const item = this.fileManager.files.find(f => f._id === itemId) || this.fileManager.folders.find(f => f._id === itemId);
+        if (item && item.sharedWith) {
+            this.activeCollaborators = item.sharedWith.map(u => (u._id || u)).filter(id => id !== this.fileManager.user._id);
+        }
+    } else {
+        // For bulk, we could show intersection or just empty for simplicity
+        this.activeCollaborators = [];
+    }
+
+    this.renderShareUserList();
+    document.getElementById('shareItemModal').classList.remove('hidden');
   }
 
   updateStats() {
@@ -869,7 +1031,115 @@ class App {
       if (toast) toast.classList.add('translate-y-20', 'opacity-0');
     }, 3000);
   }
+
+  // Sharing Modal Helpers
+  renderShareUserList() {
+    const activeList = document.getElementById('activeCollaboratorsList');
+    const suggestList = document.getElementById('shareUserList');
+    if (!suggestList || !activeList) return;
+
+    const searchTerm = (document.getElementById('shareSearchInput')?.value || '').toLowerCase();
+    
+    // 1. Render Active Collaborators
+    const activeCandidates = (window.allUsers || []).filter(u => this.activeCollaborators.includes(u._id));
+    activeList.innerHTML = activeCandidates.map(user => `
+        <div class="flex items-center justify-between p-3 bg-tech-blue/5 border border-tech-blue/20 rounded-2xl group animate-fade-in">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-tech-blue/10 text-tech-blue flex items-center justify-center text-[10px] font-black border border-tech-blue/10">
+                    ${user.username[0].toUpperCase()}
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-white">${user.username}</div>
+                    <div class="text-[8px] text-slate-500 uppercase tracking-widest font-black">${user.email}</div>
+                </div>
+            </div>
+            <button onclick="app.handleRevoke('${user._id}')" class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center" title="Revoke Access">
+                <i class="fas fa-user-minus text-[10px]"></i>
+            </button>
+        </div>
+    `).join('');
+
+    // 2. Render Suggestions
+    const suggestedCandidates = (window.allUsers || []).filter(u => 
+        !this.activeCollaborators.includes(u._id) && 
+        u._id !== this.fileManager.user._id &&
+        (u.username.toLowerCase().includes(searchTerm) || u.email.toLowerCase().includes(searchTerm))
+    );
+
+    suggestList.innerHTML = suggestedCandidates.map(user => {
+        const isSelected = (this.tempSharedUserIds || []).includes(user._id);
+        return `
+            <div class="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all cursor-pointer group" onclick="app.toggleShareUser('${user._id}')">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-xs font-black border border-white/5 group-hover:border-tech-blue/30 transition-all">
+                        ${user.username[0].toUpperCase()}
+                    </div>
+                    <div>
+                        <div class="text-sm font-bold text-white">${user.username}</div>
+                        <div class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">${user.email}</div>
+                    </div>
+                </div>
+                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'border-tech-blue bg-tech-blue' : 'border-white/10'}">
+                    ${isSelected ? '<i class="fas fa-check text-[10px] text-white"></i>' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+  }
+
+  async handleRevoke(userId) {
+    if (!this.currentSharingItems || !this.currentSharingItems.length) return;
+    
+    if (confirm(`Revoke access for this user on ${this.currentSharingItems.length} items?`)) {
+        try {
+            this.showToast("Revoking", "Updating permissions...", "brand");
+            for (const itemId of this.currentSharingItems) {
+                const isFolder = this.fileManager.folders.some(f => f._id === itemId);
+                await this.fileManager.revokeAccess(itemId, isFolder ? 'folder' : 'file', userId);
+            }
+            this.showToast("Success", "Access revoked successfully", "success");
+            
+            // Remove from local tracking and re-render
+            this.activeCollaborators = this.activeCollaborators.filter(id => id !== userId);
+            this.renderShareUserList();
+            await this.loadData();
+        } catch (err) {
+            console.error(err);
+            this.showToast("Revoke Failed", err.message, "error");
+        }
+    }
+  }
+
+  toggleShareUser(userId) {
+    if (!this.tempSharedUserIds) this.tempSharedUserIds = [];
+    const idx = this.tempSharedUserIds.indexOf(userId);
+    if (idx > -1) this.tempSharedUserIds.splice(idx, 1);
+    else this.tempSharedUserIds.push(userId);
+    this.renderShareUserList();
+  }
 }
+
+// Global helpers for sharing modal (called from HTML)
+window.closeShareItemModal = () => document.getElementById('shareItemModal').classList.add('hidden');
+window.filterShareUsers = () => app.renderShareUserList();
+document.getElementById('confirmShareBtn')?.addEventListener('click', async () => {
+    if (!app.currentSharingItems || !app.currentSharingItems.length) return;
+    
+    try {
+        app.showToast("Synchronizing", "Updating sharing registry...", "brand");
+        for (const itemId of app.currentSharingItems) {
+            const isFolder = app.fileManager.folders.some(f => f._id === itemId);
+            await app.fileManager.shareItem(itemId, isFolder ? 'folder' : 'file', app.tempSharedUserIds);
+        }
+        app.showToast("Success", "Access permissions synchronized", "success");
+        window.closeShareItemModal();
+        app.selectedItems.clear();
+        app.loadData();
+    } catch (err) {
+        console.error(err);
+        app.showToast("Sync Error", "Failed to update sharing registry", "error");
+    }
+});
 
 let app;
 document.addEventListener("DOMContentLoaded", () => { app = new App(); });

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en" class="dark bg-[#0F172A]" style="background-color: #0F172A; color-scheme: dark;">
+
+<head>
+    <title>Project Management - Hwai Technology</title>
+    <%- include('../partials/head') %>
+        <%- include('../partials/scripts') %>
+            <%- include('../partials/auth-guard') %>
+                <style>
+                    body {
+                        overflow: hidden;
+                        height: 100vh;
+                        width: 100vw;
+                    }
+
+                    .kanban-column {
+                        min-height: 200px;
+                        transition: all 0.3s ease;
+                    }
+
+                    .task-card {
+                        cursor: grab;
+                        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+                        position: relative;
+                        z-index: 10;
+                    }
+
+                    .task-card:hover {
+                        transform: translateY(-2px);
+                        border-color: rgba(56, 189, 248, 0.3);
+                        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                    }
+
+                    .task-card:active {
+                        cursor: grabbing;
+                        transform: scale(0.95);
+                    }
+
+                    select option {
+                        background-color: #1e293b;
+                        color: white;
+                    }
+
+                    .column-content {
+                        padding-top: 4px;
+                        padding-bottom: 20px;
+                    }
+
+                    .gradient-border {
+                        position: relative;
+                        background: linear-gradient(rgba(30, 41, 59, 0.4), rgba(30, 41, 59, 0.4)) padding-box,
+                            linear-gradient(to bottom right, rgba(56, 189, 248, 0.2), rgba(99, 102, 241, 0.2)) border-box;
+                        border: 1px solid transparent;
+                    }
+
+                    .markdown-content {
+                        font-size: 0.875rem;
+                        line-height: 1.6;
+                    }
+
+                    /* Markdown styles simplified for brevity, assuming they are either in global css or here */
+                </style>
+</head>
+
+<body class="flex flex-col h-screen bg-[#0F172A] text-slate-200">
+    <%- include('../partials/header', { isAdminPage: false }) %>
+
+        <main class="flex-1 overflow-hidden relative flex">
+            <!-- Sidebar Backdrop (Mobile Only) -->
+            <div id="sidebarOverlay"
+                class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[55] hidden lg:hidden transition-opacity duration-300 opacity-0 cursor-pointer">
+            </div>
+
+            <!-- Sidebar -->
+            <aside id="sidebar"
+                class="fixed lg:relative inset-y-0 left-0 w-72 border-r border-white/10 glass overflow-y-auto custom-scrollbar flex flex-col p-6 gap-8 z-[60] transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+                <div class="lg:hidden flex justify-end mb-2">
+                    <button id="closeMenuBtn" class="p-2 text-slate-500 hover:text-white transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <%- include('../partials/sidebar-nav') %>
+            </aside>
+
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 bg-slate-900/50">
+            <!-- Page Title & Actions -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="space-y-1">
+                    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-white">Project Matrix</h1>
+                    <p class="text-slate-500 text-sm font-medium">Coordinate, monitor, and execute project stages.</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    <div class="relative flex-1 sm:w-64">
+                        <select id="projectSelect"
+                            class="w-full appearance-none bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-tech-blue transition-all cursor-pointer">
+                            <option value="" disabled selected>Active Operations...</option>
+                        </select>
+                        <i
+                            class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 text-[10px] pointer-events-none"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kanban Board View -->
+            <div id="boardContainer"
+                class="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar flex gap-4 md:gap-6 pb-4">
+                <!-- Columns -->
+                <% const columns=[ { id: 'todo' , label: 'To Do' , color: 'bg-slate-500' ,
+                    shadow: 'rgba(148,163,184,0.5)' }, { id: 'pending' , label: 'Pending' , color: 'bg-amber-500' ,
+                    shadow: 'rgba(245,158,11,0.5)' }, { id: 'working' , label: 'Working' , color: 'bg-blue-500' ,
+                    shadow: 'rgba(59,130,246,0.5)' }, { id: 'review' , label: 'Review' , color: 'bg-indigo-500' ,
+                    shadow: 'rgba(99,102,241,0.5)' }, { id: 'done' , label: 'Done' , color: 'bg-emerald-500' ,
+                    shadow: 'rgba(16,185,129,0.5)' } ]; %>
+                    <% columns.forEach(col=> { %>
+                        <div class="kanban-column flex flex-col min-w-[280px] max-w-[320px] flex-1">
+                            <div class="flex items-center justify-between mb-3 px-2">
+                                <div class="flex items-center gap-2">
+                                    <div
+                                        class="w-1.5 h-1.5 rounded-full <%= col.color %> shadow-[0_0_8px_<%= col.shadow %>]">
+                                    </div>
+                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                                        <%= col.label %>
+                                    </h3>
+                                </div>
+                                <button
+                                    class="add-task-btn w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/5 text-slate-500 hover:text-white transition-all"
+                                    data-status="<%= col.id %>"><i class="fas fa-plus text-[10px]"></i></button>
+                            </div>
+                            <div id="col-<%= col.id %>"
+                                class="column-content flex-1 overflow-y-auto custom-scrollbar space-y-3 px-1"
+                                ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                        </div>
+                        <% }); %>
+            </div>
+            </div>
+        </main>
+
+        <!-- Project Modal -->
+        <div id="projectModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onclick="closeModal('projectModal')"></div>
+            <div
+                class="relative glass max-w-lg w-full p-6 md:p-8 rounded-2xl border-white/10 flex flex-col gap-6 animate-in fade-in zoom-in duration-300">
+                <h2 class="text-xl font-bold text-white uppercase tracking-wider">Initialize Project</h2>
+                <div class="space-y-5">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">Project
+                            Identifer</label>
+                        <input type="text" id="projectName" placeholder="e.g. Apollo Mission"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-tech-blue transition-all">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">Mission
+                            Description</label>
+                        <textarea id="projectDesc" placeholder="Brief system overview..."
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-tech-blue transition-all h-24 resize-none"></textarea>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">Access
+                            Permissions</label>
+                        <div id="userSelectionList" class="max-h-40 overflow-y-auto custom-scrollbar space-y-2 mt-2">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-2">
+                    <button onclick="closeModal('projectModal')"
+                        class="flex-1 py-3.5 bg-white/5 rounded-xl font-bold text-sm hover:bg-white/10 transition-all text-slate-300">Cancel</button>
+                    <button id="saveProjectBtn"
+                        class="flex-1 py-3.5 bg-tech-blue rounded-xl font-bold text-sm text-white shadow-lg shadow-tech-blue/20 hover:bg-blue-600 transition-all">Activate</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Modal -->
+        <div id="taskModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onclick="closeModal('taskModal')"></div>
+            <div
+                class="relative glass max-w-lg w-full p-6 md:p-8 rounded-2xl border-white/10 flex flex-col gap-6 animate-in fade-in zoom-in duration-300">
+                <h2 class="text-xl font-bold text-white uppercase tracking-wider">Add Task Unit</h2>
+                <div class="space-y-5">
+                    <input type="hidden" id="taskStatus">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">Unit
+                            Title</label>
+                        <input type="text" id="taskTitle" placeholder="What needs doing?"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-tech-blue transition-all">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">Detailed
+                            Spec</label>
+                        <textarea id="taskDesc" placeholder="Optional details..."
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-tech-blue transition-all h-24 resize-none"></textarea>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">Assign
+                            Operators</label>
+                        <div id="taskAssignToContainer"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl p-4 max-h-40 overflow-y-auto custom-scrollbar flex flex-col gap-2">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-2">
+                    <button onclick="closeModal('taskModal')"
+                        class="flex-1 py-3.5 bg-white/5 rounded-xl font-bold text-sm hover:bg-white/10 transition-all text-slate-300">Cancel</button>
+                    <button id="saveTaskBtn"
+                        class="flex-1 py-3.5 bg-tech-blue rounded-xl font-bold text-sm text-white shadow-lg shadow-tech-blue/20 hover:bg-blue-600 transition-all">Deploy
+                        Task</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Detail -->
+        <div id="taskDetailModal" class="fixed inset-0 z-[100] hidden flex justify-end">
+            <div class="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onclick="closeModal('taskDetailModal')">
+            </div>
+            <div
+                class="relative glass w-full max-w-2xl h-full border-l border-white/10 flex flex-col shadow-2xl animate-in slide-in-from-right duration-500">
+                <div class="p-6 md:p-8 flex-1 overflow-y-auto custom-scrollbar">
+                    <div class="flex items-center justify-between mb-8">
+                        <div id="detail-task-status-badge"></div>
+                        <button onclick="closeModal('taskDetailModal')"
+                            class="w-10 h-10 rounded-xl hover:bg-white/5 flex items-center justify-center text-slate-500 transition-all">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="taskDetailContent" class="space-y-8"></div>
+                </div>
+                <div class="p-6 border-t border-white/5 glass bg-slate-900/50">
+                    <div class="flex gap-3 items-end">
+                        <textarea id="commentInput" placeholder="Join the discussion..."
+                            class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-tech-blue transition-all h-20 resize-none"></textarea>
+                        <button id="sendCommentBtn"
+                            class="w-12 h-12 bg-tech-blue hover:bg-blue-600 rounded-xl flex items-center justify-center text-white transition-all active:scale-95 shadow-lg shadow-tech-blue/30">
+                            <i class="fas fa-paper-plane text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <%- include('../partials/toast') %>
+
+            <script src="/js/projects.js"></script>
+</body>
+
+</html>

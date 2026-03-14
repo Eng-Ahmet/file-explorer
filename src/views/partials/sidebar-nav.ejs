@@ -1,0 +1,51 @@
+<div class="flex flex-col gap-10">
+    <section>
+        <div class="flex items-center justify-between mb-5 px-2">
+            <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Files</h2>
+            <div class="flex items-center gap-1.5">
+                <button id="uploadBtn"
+                    class="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/5 text-slate-500 hover:text-tech-blue transition-all border border-transparent hover:border-white/5"
+                    title="Transfer Data (Upload)">
+                    <i class="fas fa-cloud-arrow-up text-xs"></i>
+                </button>
+                <button id="newFolderBtn"
+                    class="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/5 text-slate-500 hover:text-tech-blue transition-all border border-transparent hover:border-white/5"
+                    title="Initialize Folder">
+                    <i class="fas fa-folder-plus text-xs"></i>
+                </button>
+                <button id="newFileBtn"
+                    class="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/5 text-slate-500 hover:text-tech-blue transition-all border border-transparent hover:border-white/5"
+                    title="Generate File">
+                    <i class="fas fa-file-circle-plus text-xs"></i>
+                </button>
+            </div>
+        </div>
+        <div id="folderTree" class="space-y-1.5 min-h-[100px]">
+            <div class="animate-pulse space-y-2 px-2">
+                <div class="h-8 bg-white/5 rounded-xl w-full"></div>
+                <div class="h-8 bg-white/5 rounded-xl w-4/5 ml-4"></div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="flex items-center mb-5 px-2">
+            <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">System</h2>
+        </div>
+        <div class="space-y-2">
+            <a href="/projects"
+                class="group flex items-center gap-4 px-4 py-3.5 rounded-[1.25rem] text-slate-400 hover:text-white transition-all relative overflow-hidden">
+                <div class="absolute inset-0 bg-tech-blue/0 group-hover:bg-tech-blue/5 transition-colors"></div>
+                <div
+                    class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-tech-blue/10 group-hover:rotate-12 transition-all border border-white/5">
+                    <i class="fas fa-diagram-project text-sm group-hover:text-tech-blue"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xs font-bold uppercase tracking-widest">Projects</span>
+                    <span class="text-[8px] font-medium text-slate-600 group-hover:text-slate-400">Intelligence
+                        Hub</span>
+                </div>
+            </a>
+        </div>
+    </section>
+</div>
