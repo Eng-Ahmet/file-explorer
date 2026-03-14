@@ -2,8 +2,10 @@
 <html lang="en" class="dark bg-[#0F172A]" style="background-color: #0F172A; color-scheme: dark;">
 
 <head>
-    <title>Hwai Technology - Identity Gateway</title>
-    <%- include('../partials/head') %>
+    <title>Hwai Technology - Create Account</title>
+    <%- include('../partials/head', { pageTitle: 'Hwai Technology - Create Account' ,
+        pageDesc: 'Create your HWAI Technology account to start secure file access and management.' ,
+        pageUrl: 'https://hwai-technology.com/register' , pageImage: '/images/logo.png' , pageNoIndex: true }) %>
         <script>
             const token = localStorage.getItem('token');
             const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -21,65 +23,172 @@
             body {
                 transition: opacity 0.3s ease-in-out;
             }
+
+            .brand-side {
+                background: linear-gradient(135deg, #4a2008 0%, #1e0d04 55%, #0F172A 100%);
+            }
+
+            .brand-blob-1 {
+                position: absolute;
+                top: -6rem;
+                left: -6rem;
+                width: 24rem;
+                height: 24rem;
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 9999px;
+                filter: blur(80px);
+                pointer-events: none;
+            }
+
+            .brand-blob-2 {
+                position: absolute;
+                bottom: -6rem;
+                right: -6rem;
+                width: 24rem;
+                height: 24rem;
+                background: rgba(30, 115, 190, 0.15);
+                border-radius: 9999px;
+                filter: blur(80px);
+                pointer-events: none;
+            }
+
+            .input-field {
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                color: #f1f5f9;
+                transition: all 0.2s ease;
+            }
+
+            .input-field::placeholder {
+                color: #475569;
+            }
+
+            .input-field:focus {
+                outline: none;
+                background: rgba(255, 255, 255, 0.07);
+                border-color: #F28C38;
+                box-shadow: 0 0 0 3px rgba(242, 140, 56, 0.15);
+            }
         </style>
 </head>
 
-<body class="min-h-screen flex items-center justify-center p-6 bg-[#0F172A] text-slate-200">
-    <div class="w-full max-w-md animate-fade-in">
-        <div class="flex flex-col items-center mb-10">
-            <a href="/files" class="mb-4">
-                <img src="/images/logo.png" alt="Hwai Technology" class="h-16 w-auto">
-            </a>
-            <p class="text-slate-500">Initialize Secure Environment</p>
+<body class="min-h-screen flex flex-col bg-[#0F172A] text-slate-200">
+
+    <div class="flex-grow flex flex-col lg:flex-row min-h-screen">
+
+        <!-- Brand Side -->
+        <div
+            class="hidden lg:flex lg:w-1/2 brand-side p-12 text-white items-center justify-center relative overflow-hidden">
+            <div class="brand-blob-1"></div>
+            <div class="brand-blob-2"></div>
+
+            <div class="relative z-10 text-center max-w-lg">
+                <a href="https://hwai-technology.com/" target="_blank" rel="noopener noreferrer"
+                    class="inline-block mb-10">
+                    <img src="/images/logo.png" alt="HWAI Technology"
+                        class="h-28 mx-auto brightness-0 invert opacity-95 hover:opacity-100 transition-opacity">
+                </a>
+                <h1 class="text-4xl lg:text-5xl font-black mb-6 leading-tight tracking-tight">
+                    Join the Team
+                </h1>
+                <p class="text-xl opacity-80 font-medium leading-relaxed">
+                    Create your account and start managing files securely with the HWAI Technology platform.
+                </p>
+
+                <div class="mt-12 grid grid-cols-3 gap-6 text-center">
+                    <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <i class="fas fa-user-plus text-2xl mb-2 text-tech-orange block"></i>
+                        <p class="text-xs font-bold uppercase tracking-widest opacity-70">Register</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <i class="fas fa-shield-alt text-2xl mb-2 text-tech-blue block"></i>
+                        <p class="text-xs font-bold uppercase tracking-widest opacity-70">Secure</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <i class="fas fa-cloud-upload-alt text-2xl mb-2 text-tech-orange block"></i>
+                        <p class="text-xs font-bold uppercase tracking-widest opacity-70">Upload</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="glass p-8 rounded-3xl shadow-2xl">
-            <form id="registerForm" class="space-y-5">
-                <div>
-                    <label
-                        class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Username</label>
-                    <div class="relative">
-                        <i class="fas fa-at absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                        <input type="text" name="username" required placeholder="johndoe"
-                            class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-tech-orange/50 focus:border-tech-orange transition-all text-sm">
-                    </div>
+        <!-- Form Side -->
+        <div class="flex-grow lg:w-1/2 flex items-center justify-center p-8 md:p-16 bg-[#0F172A]">
+            <div class="w-full max-w-md animate-fade-in">
+
+                <!-- Mobile logo -->
+                <div class="flex flex-col items-center mb-10 lg:hidden">
+                    <a href="https://hwai-technology.com/" target="_blank" rel="noopener noreferrer" class="mb-4">
+                        <img src="/images/logo.png" alt="HWAI Technology" class="h-20 w-auto">
+                    </a>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Email
-                        Address</label>
-                    <div class="relative">
-                        <i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                        <input type="email" name="email" required placeholder="name@example.com"
-                            class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-tech-orange/50 focus:border-tech-orange transition-all text-sm">
-                    </div>
+                <div class="mb-10 lg:mb-2 text-center">
+                    <h2 class="text-3xl font-black text-white mb-2 tracking-tight">Create Account</h2>
+                    <p class="text-slate-500 font-medium">Fill in your details to get started.</p>
                 </div>
 
-                <div>
-                    <label
-                        class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Password</label>
-                    <div class="relative">
-                        <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                        <input type="password" name="password" required placeholder="••••••••"
-                            class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-tech-orange/50 focus:border-tech-orange transition-all text-sm">
+                <form id="registerForm" class="space-y-5">
+                    <div>
+                        <label class="block text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">
+                            Username
+                        </label>
+                        <div class="relative group">
+                            <i
+                                class="fas fa-at absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-tech-orange transition-colors text-sm"></i>
+                            <input type="text" name="username" required placeholder="johndoe"
+                                class="input-field w-full pl-11 pr-4 py-3.5 rounded-xl text-sm font-semibold">
+                        </div>
                     </div>
+
+                    <div>
+                        <label class="block text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">
+                            Email Address
+                        </label>
+                        <div class="relative group">
+                            <i
+                                class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-tech-orange transition-colors text-sm"></i>
+                            <input type="email" name="email" required placeholder="name@hwai-technology.com"
+                                class="input-field w-full pl-11 pr-4 py-3.5 rounded-xl text-sm font-semibold">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">
+                            Password
+                        </label>
+                        <div class="relative group">
+                            <i
+                                class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-tech-orange transition-colors text-sm"></i>
+                            <input type="password" name="password" required placeholder="••••••••"
+                                class="input-field w-full pl-11 pr-4 py-3.5 rounded-xl text-sm font-semibold">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="submitBtn"
+                        class="w-full bg-tech-orange hover:opacity-90 text-white font-black py-3.5 rounded-xl text-sm shadow-lg shadow-tech-orange/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 mt-2">
+                        Create Account
+                        <i class="fas fa-arrow-right text-xs"></i>
+                    </button>
+                </form>
+
+                <div class="mt-6 pt-6 border-t border-white/5 space-y-4">
+                    <p class="text-slate-500 text-sm text-center">
+                        Already have an account?
+                        <a href="/login" class="text-tech-orange font-black hover:underline ms-1">Sign In</a>
+                    </p>
+                    <a href="https://hwai-technology.com/team" target="_blank" rel="noopener noreferrer"
+                        class="inline-flex items-center justify-center gap-2 w-full rounded-xl border border-tech-orange/20 bg-tech-orange/5 hover:bg-tech-orange/10 px-4 py-3 text-sm font-black text-tech-orange transition-colors">
+                        <i class="fas fa-users"></i>
+                        <span>Meet the Team</span>
+                        <i class="fas fa-external-link-alt text-xs opacity-60"></i>
+                    </a>
+                    <p class="text-center text-xs text-slate-700 font-bold uppercase tracking-widest pt-1">
+                        &copy; 2026 <a href="https://hwai-technology.com/" target="_blank" rel="noopener noreferrer"
+                            class="hover:text-tech-orange transition-colors">HWAI Technology</a>
+                    </p>
                 </div>
 
-                <button type="submit"
-                    class="w-full bg-tech-orange hover:opacity-90 text-white font-bold py-3 rounded-xl shadow-lg shadow-tech-orange/20 transition-all active:scale-[0.98] mt-4">
-                    Create Account
-                </button>
-            </form>
-
-            <div class="mt-8 pt-8 border-t border-white/10 text-center">
-                <p class="text-slate-500 text-sm">
-                    Already registered? <a href="/login" class="text-tech-orange font-bold hover:underline">Sign In
-                        here</a>
-                </p>
-                <a href="/files"
-                    class="inline-block mt-4 text-xs text-slate-600 hover:text-slate-400 transition-colors uppercase font-bold tracking-widest">
-                    <i class="fas fa-arrow-left me-1"></i> Back to Explorer
-                </a>
             </div>
         </div>
     </div>
@@ -88,12 +197,11 @@
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const data = Object.fromEntries(new FormData(e.target));
-            const btn = e.target.querySelector('button');
-            const originalText = btn.textContent;
+            const btn = document.getElementById('submitBtn');
 
             try {
                 btn.disabled = true;
-                btn.textContent = 'Creating Account...';
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Creating Account...';
 
                 const res = await fetch('/api/auth/register', {
                     method: 'POST',
@@ -103,17 +211,17 @@
                 const result = await res.json();
 
                 if (res.ok) {
-                    alert('Success! Redirecting to login...');
-                    window.location.href = '/login';
+                    btn.innerHTML = '<i class="fas fa-check me-2"></i> Account Created!';
+                    setTimeout(() => { window.location.href = '/login'; }, 800);
                 } else {
                     alert(result.message);
                     btn.disabled = false;
-                    btn.textContent = originalText;
+                    btn.innerHTML = 'Create Account <i class="fas fa-arrow-right text-xs"></i>';
                 }
             } catch (err) {
                 alert('Registration failed');
                 btn.disabled = false;
-                btn.textContent = originalText;
+                btn.innerHTML = 'Create Account <i class="fas fa-arrow-right text-xs"></i>';
             }
         });
     </script>
